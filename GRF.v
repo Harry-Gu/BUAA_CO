@@ -28,7 +28,13 @@ module GRF(
     input wire reset,
     input wire [31:0] CurPC,
 	 output wire [31:0] RD1,
-    output wire [31:0] RD2
+    output wire [31:0] RD2,
+	 
+	 // for online judgement
+	 output wire w_grf_we,
+    output wire [4:0] w_grf_addr,
+    output wire [31:0] w_grf_wdata,
+    output wire [31:0] w_inst_addr
     );
 	
 	reg[31:0] registers[31:0];
@@ -48,10 +54,15 @@ module GRF(
 			if(RegWrite) begin
 				registers[WriteAddr] <= WriteData;
 				//$display("@%h: $%d <= %h", CurPC, WriteAddr, WriteData);
-				$display("%d@%h: $%d <= %h", $time, CurPC, WriteAddr, WriteData);
+				//$display("%d@%h: $%d <= %h", $time, CurPC, WriteAddr, WriteData);
 			end
 		end
 	
 	end
-
+	
+	//for online judgement
+	assign w_grf_we = RegWrite;
+	assign w_grf_addr = WriteAddr;
+	assign w_grf_wdata = WriteData;
+	assign w_inst_addr = CurPC;
 endmodule

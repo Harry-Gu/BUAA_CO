@@ -23,7 +23,7 @@
 module NPC(
     input wire [31:0] PC,
     input wire Branch,
-    input wire [1:0] BranchType,
+    input wire [2:0] BranchType,
     input wire isEq,
     input wire [31:0] ShifterOut,
     input wire [25:0] Imm26,
@@ -44,6 +44,14 @@ module NPC(
 				`BT_beq:
 					begin
 						if(isEq) begin
+							NextPC = PCplus4 + ShifterOut;
+						end else begin
+							NextPC = PCplus8;
+						end
+					end
+				`BT_bne:
+					begin
+						if(!isEq) begin
 							NextPC = PCplus4 + ShifterOut;
 						end else begin
 							NextPC = PCplus8;

@@ -1,17 +1,39 @@
-`define ALUadd 5'b00000
-`define ALUsub 5'b00001
-`define ALUor 5'b00010
-`define ALUisEqual 5'b00100
+`define ALU_add 5'b00000
+`define ALU_sub 5'b00001
+`define ALU_and 5'b00010
+`define ALU_or 5'b00011
+`define ALU_isEqual 5'b00100
+`define ALU_isLess 5'b00110
+`define ALU_isLess_unsigned 5'b00111
 
-`define BT_beq 2'b00
-`define BT_jal 2'b01
-`define BT_jr 2'b10
+`define BT_beq 3'b000
+`define BT_bne 3'b001
+`define BT_jal 3'b010
+`define BT_jr 3'b011
 
 `define IM_SIZE (4096)
 `define DM_SIZE (3072)
 `define PC_INIT 32'h00003000
 
-`define REG_SRC_ALU 2'b00
-`define REG_SRC_MEM 2'b01
-`define REG_SRC_PC 2'b10
-//`define REG_SRC_SP 2'b11
+`define REG_SRC_ALU 3'b000
+`define REG_SRC_MEM 3'b001
+`define REG_SRC_PC 3'b010
+`define REG_SRC_HI_LO 3'b011
+
+`define X_INIT_32 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx
+
+`define MUL_DELAY 5
+`define DIV_DELAY 10
+
+`define MEM_TYPE_B 2'b00
+`define MEM_TYPE_H 2'b01
+`define MEM_TYPE_W 2'b10
+
+`define MDU_mul 3'b000
+`define MDU_mulu 3'b001
+`define MDU_div 3'b010
+`define MDU_divu 3'b011
+
+`define SHIFTER_MOD_0 2'b00
+`define SHIFTER_MOD_2 2'b01
+`define SHIFTER_MOD_16 2'b10

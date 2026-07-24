@@ -19,6 +19,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 `include "consts.v"
+`include "instrs.v"
 //`default_nettype none
 module ctrl(
     input wire[31:0] Instr,
@@ -27,7 +28,7 @@ module ctrl(
     output reg [4:0] RegA2,
     output reg RegWrite,
 	 output reg [4:0] RegDst,
-	 output reg [1:0] RegDataSrc,	//ALU, MEM or PC ?
+	 output reg [2:0] RegDataSrc,	//ALU, MEM, PC or HI/LO ?
 	 //for bit extender
 	 output reg IsSigned,
 	 //for shifter
@@ -36,7 +37,7 @@ module ctrl(
 	 output reg MemWrite,
 	 //for NPC
 	 output reg Branch,
-	 output reg [1:0] BranchType,
+	 output reg [2:0] BranchType,
 	 //for ALU
 	 output reg IsALUSrcBRD2,		//else: shifter_out
 	 output reg [4:0] ALUop,
@@ -45,6 +46,11 @@ module ctrl(
 	 output reg [1:0] Tuse_rt,
 	 output reg [1:0] Tnew,
 	 
+	 output reg IsHi,
+	 output reg IsMD, 
+	 output reg [2:0] MDUop,
+	 output reg [1:0] MemType,
+	 output reg HiLoWrite, 
 	 
 	 output reg isSP
 	 //if you add more control signal, please initialize them inside always_comb
@@ -99,17 +105,22 @@ module ctrl(
 		 RegA2 = 5'bxxxxx;
 		 RegWrite = 0;
 		 RegDst = 5'bxxxxx;
-		 RegDataSrc = 2'bxx;
+		 RegDataSrc = 3'bxxx;
 		 IsSigned = 1'bx;
 		 ShifterOp = 2'bxx;
 		 MemWrite = 0;
 		 Branch = 0;
-		 BranchType = 2'bxx;
+		 BranchType = 3'bxxx;
 		 IsALUSrcBRD2 = 1'bx;
 		 ALUop = 5'bxxxxx;
 		 Tuse_rs = 2'b11;	
 		 Tuse_rt = 2'b11;
 		 Tnew = 2'b00;
+		 IsHi = 1'bx;
+		 IsMD = 0;  	//Start signal for MDU should be set to 0 if MDU wont be used.
+		 MDUop = 3'bxxx;
+		 MemType = 2'bxx;
+		 HiLoWrite = 0;
 		 isSP = 0;		//set isSP to 1, if the new instr cannot fit in the normal ones.
 		 //*/
 		case(op)
@@ -117,7 +128,7 @@ module ctrl(
 				//R-type
 				begin
 					case(funct)
-						6'b100000, 6'b100001:
+						`FUNCT_ADD, `FUNCT_ADDU:
 							//add, addu
 							begin
 								//REGs
@@ -132,14 +143,14 @@ module ctrl(
 								
 								//ALU
 								IsALUSrcBRD2 = 1;
-								ALUop = `ALUadd;
+								ALUop = `ALU_add;
 								
 								//T
 								Tuse_rs = 1;
 								Tuse_rt = 1;
 								Tnew = 2;
 							end
-						6'b100010, 6'b100011:
+						`FUNCT_SUB, `FUNCT_SUBU:
 							//sub, subu
 							begin
 								//REGs
@@ -154,14 +165,227 @@ module ctrl(
 								
 								//ALU
 								IsALUSrcBRD2 = 1;
-								ALUop = `ALUsub;
+								ALUop = `ALU_sub;
 								
 								//T
 								Tuse_rs = 1;
 								Tuse_rt = 1;
 								Tnew = 2;
 							end
-						6'b001000:
+						`FUNCT_AND:
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								//Read 2
+								RegA2 = rt;
+								//Write
+								RegWrite = 1;
+								RegDst = rd;
+								RegDataSrc = `REG_SRC_ALU;
+								
+								//ALU
+								IsALUSrcBRD2 = 1;		//else: shifter
+								ALUop = `ALU_and;
+								
+								//T
+								Tuse_rs = 1;
+								Tuse_rt = 1;
+								Tnew = 2;
+							end
+						`FUNCT_OR:
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								//Read 2
+								RegA2 = rt;
+								//Write
+								RegWrite = 1;
+								RegDst = rd;
+								RegDataSrc = `REG_SRC_ALU;
+								
+								//ALU
+								IsALUSrcBRD2 = 1;		//else: shifter
+								ALUop = `ALU_or;
+								
+								//T
+								Tuse_rs = 1;
+								Tuse_rt = 1;
+								Tnew = 2;
+							end
+						`FUNCT_SLT:
+						//set on less than
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								//Read 2
+								RegA2 = rt;
+								//Write
+								RegWrite = 1;
+								RegDst = rd;
+								RegDataSrc = `REG_SRC_ALU;
+								
+								//ALU
+								IsALUSrcBRD2 = 1;		//else: shifter
+								ALUop = `ALU_isLess;
+								
+								//T
+								Tuse_rs = 1;
+								Tuse_rt = 1;
+								Tnew = 2;
+							end
+						`FUNCT_SLTU:
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								//Read 2
+								RegA2 = rt;
+								//Write
+								RegWrite = 1;
+								RegDst = rd;
+								RegDataSrc = `REG_SRC_ALU;
+								
+								//ALU
+								IsALUSrcBRD2 = 1;		//else: shifter
+								ALUop = `ALU_isLess_unsigned;
+								
+								//T
+								Tuse_rs = 1;
+								Tuse_rt = 1;
+								Tnew = 2;
+							end
+						`FUNCT_MULT:
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								//Read 2
+								RegA2 = rt;
+								
+								//MDU
+								//Calc
+								IsMD = 1;
+								MDUop = `MDU_mul;
+								
+								//T
+								Tuse_rs = 1;
+								Tuse_rt = 1;
+							end
+						`FUNCT_MULTU:
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								//Read 2
+								RegA2 = rt;
+								
+								//MDU
+								//Calc
+								IsMD = 1;
+								MDUop = `MDU_mulu;
+								
+								//T
+								Tuse_rs = 1;
+								Tuse_rt = 1;
+							end
+						`FUNCT_DIV:
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								//Read 2
+								RegA2 = rt;
+								
+								//MDU
+								//Calc
+								IsMD = 1;
+								MDUop = `MDU_div;
+								
+								//T
+								Tuse_rs = 1;
+								Tuse_rt = 1;
+							end
+						`FUNCT_DIVU:
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								//Read 2
+								RegA2 = rt;
+								
+								//MDU
+								//Calc
+								IsMD = 1;
+								MDUop = `MDU_divu;
+								
+								//T
+								Tuse_rs = 1;
+								Tuse_rt = 1;
+							end
+						`FUNCT_MFHI:
+							begin
+								//REGs
+								//Write
+								RegWrite = 1;
+								RegDst = rd;
+								RegDataSrc = `REG_SRC_HI_LO;
+								
+								//MDU
+								//Move
+								HiLoWrite = 0;
+								IsHi = 1;
+								
+								//T
+								Tnew = 2;
+							end
+						`FUNCT_MFLO:
+							begin
+								//REGs
+								//Write
+								RegWrite = 1;
+								RegDst = rd;
+								RegDataSrc = `REG_SRC_HI_LO;
+								
+								//MDU
+								//Move
+								HiLoWrite = 0;
+								IsHi = 0;
+								
+								//T
+								Tnew = 2;
+							end
+						`FUNCT_MTHI:
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								
+								//MDU
+								//Move
+								HiLoWrite = 1;
+								IsHi = 1;
+								
+								//T
+								Tuse_rs = 1;
+							end
+						`FUNCT_MTLO:
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								
+								//MDU
+								//Move
+								HiLoWrite = 1;
+								IsHi = 0;
+								
+								//T
+								Tuse_rs = 1;
+							end
+						`FUNCT_JR:
 							//jr
 							begin
 								//REGs
@@ -175,7 +399,7 @@ module ctrl(
 								//T
 								Tuse_rs = 0;
 							end
-						6'b001001:
+						`FUNCT_JALR:
 							//jalr
 							begin
 								//REGs
@@ -194,34 +418,10 @@ module ctrl(
 								Tuse_rs = 0;
 								Tnew = 1;
 							end
-						
 					endcase
 				end
-			6'b001101:
-				//ori
-				begin
-					//REGs
-					//Read 1
-					RegA1 = rs;
-					//Write
-					RegWrite = 1;
-					RegDst = rt;
-					RegDataSrc = `REG_SRC_ALU;
-					
-					//EXT
-					IsSigned = 1'b0;
-					//shifter
-					ShifterOp = 2'b00;
-					
-					//ALU
-					IsALUSrcBRD2 = 0;	//shifter
-					ALUop = `ALUor;
-					
-					//T
-					Tuse_rs = 1;
-					Tnew = 2;
-				end
-			6'b001111:
+				
+			`OP_LUI:
 				//lui
 				begin
 					//REGs
@@ -235,17 +435,142 @@ module ctrl(
 					//EXT
 					IsSigned = 1'b0;	//lui may cause trouble if it uses x
 					//shifetr
-					ShifterOp = 2'b10;	//16
+					ShifterOp = `SHIFTER_MOD_16;	//16
 					
 					//ALU
 					IsALUSrcBRD2 = 0;		//else: shifter
-					ALUop = `ALUor;
+					ALUop = `ALU_or;
 					
 					//T
 					Tuse_rs = 1;
 					Tnew = 2;
 				end
-			6'b100011:
+			`OP_ADDI, `OP_ADDIU:
+			//u in ADDIU means it wont trap when overflow, but still use sign-ext.
+				begin
+					//REGs
+					//Read 1
+					RegA1 = rs;
+					//Write
+					RegWrite = 1;
+					RegDst = rt;
+					RegDataSrc = `REG_SRC_ALU;
+					
+					//EXT
+					IsSigned = 1;		//addiu still use signed extend !
+					//shifetr
+					ShifterOp = `SHIFTER_MOD_0;
+					
+					//ALU
+					IsALUSrcBRD2 = 0;		//else: shifter
+					ALUop = `ALU_add;
+					
+					//T
+					Tuse_rs = 1;
+					Tnew = 2;
+				end
+			`OP_ANDI:
+				begin
+					//REGs
+					//Read 1
+					RegA1 = rs;
+					//Write
+					RegWrite = 1;
+					RegDst = rt;
+					RegDataSrc = `REG_SRC_ALU;
+					
+					//EXT
+					IsSigned = 1'b0;
+					//shifter
+					ShifterOp = `SHIFTER_MOD_0;
+					
+					//ALU
+					IsALUSrcBRD2 = 0;	//shifter
+					ALUop = `ALU_and;
+					
+					//T
+					Tuse_rs = 1;
+					Tnew = 2;
+				end
+			`OP_ORI:
+				//ori
+				begin
+					//REGs
+					//Read 1
+					RegA1 = rs;
+					//Write
+					RegWrite = 1;
+					RegDst = rt;
+					RegDataSrc = `REG_SRC_ALU;
+					
+					//EXT
+					IsSigned = 1'b0;
+					//shifter
+					ShifterOp = `SHIFTER_MOD_0;
+					
+					//ALU
+					IsALUSrcBRD2 = 0;	//shifter
+					ALUop = `ALU_or;
+					
+					//T
+					Tuse_rs = 1;
+					Tnew = 2;
+				end
+			`OP_LB:
+				begin
+					//REGs
+					//Read 1
+					RegA1 = base;
+					//Write
+					RegWrite = 1;
+					RegDst = rt;
+					RegDataSrc = `REG_SRC_MEM;
+					
+					//EXT
+					IsSigned = 1;
+					//shifetr
+					ShifterOp = `SHIFTER_MOD_0;
+					
+					//MEMs
+					MemWrite = 0;	//read
+					MemType = `MEM_TYPE_B;
+					
+					//ALU
+					IsALUSrcBRD2 = 0;		//else: shifter
+					ALUop = `ALU_add;
+					
+					//T
+					Tuse_rs = 1;
+					Tnew = 3;
+				end
+			`OP_LH:
+				begin
+					//REGs
+					//Read 1
+					RegA1 = base;
+					//Write
+					RegWrite = 1;
+					RegDst = rt;
+					RegDataSrc = `REG_SRC_MEM;
+					
+					//EXT
+					IsSigned = 1'b1;
+					//shifetr
+					ShifterOp = `SHIFTER_MOD_0;
+					
+					//MEMs
+					MemWrite = 0;	//read
+					MemType = `MEM_TYPE_H;
+					
+					//ALU
+					IsALUSrcBRD2 = 1'b0;		//else: shifter
+					ALUop = `ALU_add;
+					
+					//T
+					Tuse_rs = 1;
+					Tnew = 3;
+				end
+			`OP_LW:
 				//lw
 				begin
 					//REGs
@@ -259,20 +584,71 @@ module ctrl(
 					//EXT
 					IsSigned = 1'b1;
 					//shifetr
-					ShifterOp = 2'b00;
+					ShifterOp = `SHIFTER_MOD_0;
 					
 					//MEMs
 					MemWrite = 0;	//read
+					MemType = `MEM_TYPE_W;
 					
 					//ALU
 					IsALUSrcBRD2 = 1'b0;		//else: shifter
-					ALUop = `ALUadd;
+					ALUop = `ALU_add;
 					
 					//T
 					Tuse_rs = 1;
 					Tnew = 3;
 				end
-			6'b101011:
+			`OP_SB:
+				begin
+					//REGs
+					//Read 1
+					RegA1 = base;
+					//Read 2
+					RegA2 = rt;
+					
+					//EXT
+					IsSigned = 1'b1;
+					//shifetr
+					ShifterOp = `SHIFTER_MOD_0;
+					
+					//MEMs
+					MemWrite = 1;
+					MemType = `MEM_TYPE_B;
+					
+					//ALU
+					IsALUSrcBRD2 = 1'b0;		//else: shifter
+					ALUop = `ALU_add;
+					
+					//T
+					Tuse_rs = 1;
+					Tuse_rt = 2;
+				end
+			`OP_SH:
+				begin
+					//REGs
+					//Read 1
+					RegA1 = base;
+					//Read 2
+					RegA2 = rt;
+					
+					//EXT
+					IsSigned = 1'b1;
+					//shifetr
+					ShifterOp = `SHIFTER_MOD_0;
+					
+					//MEMs
+					MemWrite = 1;
+					MemType = `MEM_TYPE_H;
+					
+					//ALU
+					IsALUSrcBRD2 = 1'b0;		//else: shifter
+					ALUop = `ALU_add;
+					
+					//T
+					Tuse_rs = 1;
+					Tuse_rt = 2;
+				end
+			`OP_SW:
 				//sw
 				begin
 					//REGs
@@ -284,20 +660,21 @@ module ctrl(
 					//EXT
 					IsSigned = 1'b1;
 					//shifetr
-					ShifterOp = 2'b00;
+					ShifterOp = `SHIFTER_MOD_0;
 					
 					//MEMs
 					MemWrite = 1;
+					MemType = `MEM_TYPE_W;
 					
 					//ALU
 					IsALUSrcBRD2 = 1'b0;		//else: shifter
-					ALUop = `ALUadd;
+					ALUop = `ALU_add;
 					
 					//T
 					Tuse_rs = 1;
 					Tuse_rt = 2;
 				end
-			6'b000100:
+			`OP_BEQ:
 				//beq
 				begin
 					//REGs
@@ -309,7 +686,7 @@ module ctrl(
 					//EXT
 					IsSigned = 1'b1;
 					//shifetr
-					ShifterOp = 2'b01;		//shamt: 2
+					ShifterOp = `SHIFTER_MOD_2;		//shamt: 2
 					
 					//Branch
 					Branch = 1;
@@ -317,13 +694,38 @@ module ctrl(
 					
 					//ALU
 					IsALUSrcBRD2 = 1'b1;		//else: shifter
-					ALUop = `ALUisEqual;
+					ALUop = `ALU_isEqual;
 					
 					//T
 					Tuse_rs = 0;
 					Tuse_rt = 0;
 				end
-			6'b000011:
+			`OP_BNE:
+				begin
+					//REGs
+					//Read 1
+					RegA1 = rs;
+					//Read 2
+					RegA2 = rt;
+					
+					//EXT
+					IsSigned = 1'b1;
+					//shifetr
+					ShifterOp = `SHIFTER_MOD_2;		//shamt: 2
+					
+					//Branch
+					Branch = 1;
+					BranchType = `BT_bne;
+					
+					//ALU
+					IsALUSrcBRD2 = 1'b1;		//else: shifter
+					ALUop = `ALU_isEqual;
+					
+					//T
+					Tuse_rs = 0;
+					Tuse_rt = 0;
+				end
+			`OP_JAL:
 				//jal
 				begin
 					//REGs
@@ -339,6 +741,13 @@ module ctrl(
 					//T
 					Tnew = 1;
 				end
+			`OP_J:
+				//jal
+				begin
+					//Branch
+					Branch = 1;
+					BranchType = `BT_jal;
+				end
 		endcase
 	 end
 
@@ -353,7 +762,7 @@ endmodule
 					//Write
 					RegWrite = 0;
 					RegDst = 5'bxxxxx;
-					RegDataSrc = 2'bxx;
+					RegDataSrc = 3'bxxx;
 					
 					//EXT
 					IsSigned = 1'bx;
@@ -362,12 +771,26 @@ endmodule
 					
 					//MEMs
 					MemWrite = 0;
+					MemType = 2'bxx;
+					
+					//MDU
+					//Calc
+					IsMD = 0;
+					MDUop = 3'bxxx;
+					//Move
+					HiLoWrite = 0;
+					IsHi = 1'bx;
 					
 					//Branch
 					Branch = 0;
-					BranchType = 2'bxx;
+					BranchType = 3'bxxx;
 					
 					//ALU
 					IsALUSrcBRD2 = 1'bx;		//else: shifter
 					ALUop = 5'bxxxxx;
+					
+					//T
+					Tuse_rs = ?;
+					Tuse_rt = ?;
+					Tnew = ?;
 */

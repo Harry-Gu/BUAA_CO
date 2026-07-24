@@ -42,11 +42,9 @@ module Forwarder(
 	 
 	 input wire [31:0] PCplus8_E,
 	 
-	 input wire [31:0] PCplus8_M,
-	 input wire [31:0] ALUout_M,
-	 input wire [1:0] RegDataSrc_M,
+	 input wire [31:0] DataForward_M,
 	 
-	 input wire [31:0] DataWriteBack_WB,
+	 input wire [31:0] DataForward_WB,
 	 
 	 output wire [31:0] Real_RD1_D,
 	 output wire [31:0] Real_RD2_D,
@@ -58,8 +56,8 @@ module Forwarder(
 	
 	wire [31:0] forward_E, forward_M, forward_WB;
 	assign forward_E = PCplus8_E;
-	assign forward_M = (RegDataSrc_M == `REG_SRC_PC) ? PCplus8_M : ALUout_M;
-	assign forward_WB = DataWriteBack_WB;
+	assign forward_M = DataForward_M;
+	assign forward_WB = DataForward_WB;
 	
 	
 	assign Real_RD1_D = (forward_E_to_Real_RD1_D) ? 

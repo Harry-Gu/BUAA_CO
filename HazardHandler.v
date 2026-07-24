@@ -51,9 +51,19 @@ module HazardHandler(
 	 input wire RegWrite_WB,	
 	 //dont need Tnew because it is cetainly 0.
 	 
+	 input wire HiLoWrite_D, 
+	 input wire [2:0] RegDataSrc_D, 
+	 input wire IsMD_E, 
+	 input wire Busy_E, 
+	 
 	 
     output reg Stall_D,
+	 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	 //if Stall_E is used, should be careful about the forwarding process.
+	 //when E is stalled, maybe the data to forward cannot be written pipeline register, and E cannot read from register, which means the data may never be forwarded, cause problems.
+	 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	 output reg Stall_E,	//with the mips standard instructions, it should always be 0.
+	 
 	 output reg forward_E_to_Real_RD1_D,
 	 output reg forward_E_to_Real_RD2_D,
 	 output reg forward_M_to_Real_RD1_D,
@@ -96,6 +106,13 @@ module HazardHandler(
 		forward_WB_to_Real_RD2_E = 0;
 		forward_WB_to_Real_RD1_M = 0;
 		forward_WB_to_Real_RD2_M = 0;
+		
+		//	<MDU is still working> and (<D stage want ot read Hi/Lo> or <D stage want to write Hi/Lo>)
+		// the HiLoWrite_D is not neccessary, because ,for instance, mflo after mthi is a UB.
+		// dont delete this, it will cause fail in online judge...... (so sad
+		if((IsMD_E || Busy_E) && (RegDataSrc_D == `REG_SRC_HI_LO || HiLoWrite_D)) begin
+			Stall_D = 1;
+		end
 		
 		//E -> D
 		// forwarding from E stage should have higher priority than forwarding from M stage!

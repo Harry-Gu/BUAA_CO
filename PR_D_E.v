@@ -29,7 +29,7 @@ module PR_D_E(
     input wire [4:0] RegA2In,
 	 input wire RegWriteIn,
 	 input wire [4:0] RegDstIn,
-	 input wire [1:0] RegDataSrcIn,	//else from MemDataOut
+	 input wire [2:0] RegDataSrcIn,	//else from MemDataOut
 	 input wire MemWriteIn,
 	 input wire IsALUSrcBRD2In,		//else: shifter_out
 	 input wire [4:0] ALUopIn,
@@ -43,7 +43,14 @@ module PR_D_E(
 	 
 	 input wire [31:0] PCplus8In,
 	 
+	 input wire IsHiIn,
+	 input wire IsMDIn,
+	 input wire [2:0] MDUopIn,
+	 input wire [1:0] MemTypeIn,
+	 input wire HiLoWriteIn, 
+	 
 	 input wire isSPIn,
+	 
 	 
     output reg [31:0] InstrOut,
 	 
@@ -51,7 +58,7 @@ module PR_D_E(
     output reg [4:0] RegA2Out,
     output reg RegWriteOut,
 	 output reg [4:0] RegDstOut,
-	 output reg [1:0] RegDataSrcOut,
+	 output reg [2:0] RegDataSrcOut,
 	 output reg MemWriteOut,
 	 output reg IsALUSrcBRD2Out,
 	 output reg [4:0] ALUopOut,
@@ -65,6 +72,12 @@ module PR_D_E(
 	 
 	 output reg [31:0] PCplus8Out,
 	 
+	 output reg IsHiOut,
+	 output reg IsMDOut,
+	 output reg [2:0] MDUopOut,
+	 output reg [1:0] MemTypeOut,
+	 output reg HiLoWriteOut, 
+	 
 	 output reg isSPOut
 	 //remember to add new signals to initialization in if(reset)!
     );
@@ -76,7 +89,7 @@ module PR_D_E(
 			RegA2Out <= 5'bxxxxx;
 			RegWriteOut <= 0;
 			RegDstOut <= 5'bxxxxx;
-			RegDataSrcOut <= 2'bxx;
+			RegDataSrcOut <= 3'bxxx;
 			MemWriteOut <= 0;
 			IsALUSrcBRD2Out <= 1'bx;
 			ALUopOut <= 5'bxxxxx;
@@ -86,6 +99,11 @@ module PR_D_E(
 			RD2Out <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
 			ShifterOutOut <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
 			PCplus8Out <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
+			IsHiOut <= 1'bx;
+			IsMDOut <= 1'b0;
+			MDUopOut <= 3'bxxx;
+			MemTypeOut <= 2'bxx;
+			HiLoWriteOut <= 0;
 			isSPOut <= 0;
 		end else if(en) begin
 			InstrOut <= InstrIn;
@@ -107,6 +125,13 @@ module PR_D_E(
 			
 			ShifterOutOut <= ShifterOutIn;
 			PCplus8Out <= PCplus8In;
+			
+			IsHiOut <= IsHiIn;
+			IsMDOut <= IsMDIn;
+			MDUopOut <= MDUopIn;
+			MemTypeOut <= MemTypeIn;
+			HiLoWriteOut <= HiLoWriteIn;
+			
 			isSPOut <= isSPIn;
 		end
 	 end

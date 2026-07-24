@@ -18,6 +18,7 @@
 // Additional Comments: 
 //
 //////////////////////////////////////////////////////////////////////////////////
+`include "consts.v"
 module PR_M_WB(
     input wire clk,
     input wire reset,		//!! at E stage, the reset should be 1 only if reset of mips is 0 or (flush_E is 0 and Stall_E is 0).		//i think
@@ -27,7 +28,7 @@ module PR_M_WB(
     
 	 input wire RegWriteIn,
 	 input wire [4:0] RegDstIn,
-	 input wire [1:0] RegDataSrcIn,	//else from MemDataOut
+	 input wire [2:0] RegDataSrcIn,	//else from MemDataOut
 	 
 	 input wire [1:0] TnewIn,
 	 
@@ -39,6 +40,7 @@ module PR_M_WB(
 	 input wire [31:0] PCplus8In,
 	 input wire [31:0] ALUoutIn,
 	 input wire [31:0] MemDataOutIn,
+	 input wire [31:0] HiOrLoIn,
 	 
 	 input wire isSPIn,
 	 
@@ -47,7 +49,7 @@ module PR_M_WB(
 	 
     output reg RegWriteOut,
 	 output reg [4:0] RegDstOut,
-	 output reg [1:0] RegDataSrcOut,
+	 output reg [2:0] RegDataSrcOut,
 	 
 	 output reg [1:0] TnewOut,		//has been automaticlly minus 1.
 	 
@@ -59,6 +61,7 @@ module PR_M_WB(
 	 output reg [31:0] PCplus8Out,
 	 output reg [31:0] ALUoutOut,
 	 output reg [31:0] MemDataOutOut,
+	 output reg [31:0] HiOrLoOut,
 	 
 	 output reg isSPOut
 	 //remember to add new signals to initialization in if(reset)!
@@ -70,19 +73,19 @@ module PR_M_WB(
 			
 			RegWriteOut <= 0;
 			RegDstOut <= 5'bxxxxx;
-			RegDataSrcOut <= 2'bxx;
+			RegDataSrcOut <= 3'bxxx;
 			
 			TnewOut <= 2'bxx;
 
-			PCOut <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
+			PCOut <= `X_INIT_32;
 			
-			RD1Out <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
-			RD2Out <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
+			RD1Out <= `X_INIT_32;
+			RD2Out <= `X_INIT_32;
 			
-			PCplus8Out <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
-			ALUoutOut <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
-			MemDataOutOut <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
-			
+			PCplus8Out <= `X_INIT_32;
+			ALUoutOut <= `X_INIT_32;
+			MemDataOutOut <= `X_INIT_32;
+			HiOrLoOut <= `X_INIT_32;
 			isSPOut <= 0;
 		end else if(en) begin
 			InstrOut <= InstrIn;
@@ -101,6 +104,7 @@ module PR_M_WB(
 			PCplus8Out <= PCplus8In;
 			ALUoutOut <= ALUoutIn;
 			MemDataOutOut <= MemDataOutIn;
+			HiOrLoOut <= HiOrLoIn;
 			
 			isSPOut <= isSPIn;
 		end

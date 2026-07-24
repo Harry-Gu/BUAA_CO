@@ -18,6 +18,7 @@
 // Additional Comments: 
 //
 //////////////////////////////////////////////////////////////////////////////////
+`include "consts.v"
 module PR_E_M(
     input wire clk,
     input wire reset,		//!! at E stage, the reset should be 1 only if reset of mips is 0 or (flush_E is 0 and Stall_E is 0).		//i think
@@ -29,16 +30,17 @@ module PR_E_M(
     input wire [4:0] RegA2In,			//	reserve for "load-store" structure
 	 input wire RegWriteIn,
 	 input wire [4:0] RegDstIn,
-	 input wire [1:0] RegDataSrcIn,	//else from MemDataOut
+	 input wire [2:0] RegDataSrcIn, 
 	 input wire MemWriteIn,
 	 input wire [1:0] TnewIn,
 	 input wire [31:0] PCIn,
-	 
 	 input wire [31:0] RD1In,		// normally wont use it.
 	 input wire [31:0] RD2In,		//	reserve for "load-store" structure
-	 
 	 input wire [31:0] PCplus8In,
 	 input wire [31:0] ALUoutIn,
+	 input wire [31:0] HiOrLoIn,
+	 
+	 input wire [1:0] MemTypeIn,
 	 
 	 input wire isSPIn,
 	 
@@ -48,16 +50,17 @@ module PR_E_M(
     output reg [4:0] RegA2Out,		//	reserve for "load-store" structure
     output reg RegWriteOut,
 	 output reg [4:0] RegDstOut,
-	 output reg [1:0] RegDataSrcOut,
+	 output reg [2:0] RegDataSrcOut,
 	 output reg MemWriteOut,
 	 output reg [1:0] TnewOut,		//has been automaticlly minus 1.
 	 output reg [31:0] PCOut,
-	 
 	 output reg [31:0] RD1Out,			// normally wont use it.
 	 output reg [31:0] RD2Out,			//	reserve for "load-store" structure
-	 
 	 output reg [31:0] PCplus8Out,
 	 output reg [31:0] ALUoutOut,
+	 output reg [31:0] HiOrLoOut,
+	 
+	 output reg [1:0] MemTypeOut,
 	 
 	 output reg isSPOut
 	 //remember to add new signals to initialization in if(reset)!
@@ -70,14 +73,16 @@ module PR_E_M(
 			RegA2Out <= 5'bxxxxx;
 			RegWriteOut <= 0;
 			RegDstOut <= 5'bxxxxx;
-			RegDataSrcOut <= 2'bxx;
+			RegDataSrcOut <= 3'bxxx;
 			MemWriteOut <= 0;
 			TnewOut <= 2'bxx;
-			PCOut <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
-			RD1Out <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
-			RD2Out <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
-			PCplus8Out <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
-			ALUoutOut <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
+			PCOut <= `X_INIT_32;
+			RD1Out <= `X_INIT_32;
+			RD2Out <= `X_INIT_32;
+			PCplus8Out <= `X_INIT_32;
+			ALUoutOut <= `X_INIT_32;
+			HiOrLoOut <= `X_INIT_32;
+			MemTypeOut <= 2'bxx;
 			isSPOut <= 0;
 		end else if(en) begin
 			InstrOut <= InstrIn;
@@ -96,6 +101,8 @@ module PR_E_M(
 			RD2Out <= RD2In;
 			PCplus8Out <= PCplus8In;
 			ALUoutOut <= ALUoutIn;
+			HiOrLoOut <= HiOrLoIn;
+			MemTypeOut <= MemTypeIn;
 			isSPOut <= isSPIn;
 		end
 	 end

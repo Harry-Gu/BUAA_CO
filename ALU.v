@@ -28,14 +28,20 @@ module ALU(
 	 
 	 always@(*) begin
 		case(ALUop)
-			`ALUadd:
+			`ALU_add:
 				ALUout = ALUSrcA + ALUSrcB;
-			`ALUsub:
+			`ALU_sub:
 				ALUout = ALUSrcA - ALUSrcB;
-			`ALUor:
+			`ALU_and:
+				ALUout = ALUSrcA & ALUSrcB;
+			`ALU_or:
 				ALUout = ALUSrcA | ALUSrcB;
-			`ALUisEqual:
+			`ALU_isEqual:
 				ALUout = (ALUSrcA == ALUSrcB ? 32'h00000001 : 32'h00000000);
+			`ALU_isLess:
+				ALUout = ($signed(ALUSrcA) < $signed(ALUSrcB) ? 32'h00000001 : 32'h00000000);
+			`ALU_isLess_unsigned:
+				ALUout = (ALUSrcA < ALUSrcB ? 32'h00000001 : 32'h00000000);
 			default:
 				ALUout = 32'h00000000;
 		endcase
