@@ -30,6 +30,7 @@ module Load_Store_Decoder(
     output reg [31:0] m_data_wdata,
     output reg [3 :0] m_data_byteen,
     output reg [31:0] m_inst_addr,
+	 output reg [3 :0] m_int_byteen, 
 	 output reg [31:0] MemDataOut
     );
 	 
@@ -40,6 +41,7 @@ module Load_Store_Decoder(
 		m_data_byteen = 4'b0000;
 		m_data_addr = MemAddr;
 		MemDataOut = `X_INIT_32;
+		m_int_byteen = 4'b0000;
 		if(MemWrite) begin : write
 			//the very code should work the same way, if there is no mem operation not aligned.
 			//m_data_wdata = MemDataWrite << ({MemAddr[1:0]} << 3); 
@@ -63,6 +65,10 @@ module Load_Store_Decoder(
 			end else begin	: lw
 				MemDataOut = m_data_rdata;
 			end
+		end
+		if(MemAddr >= 32'h7f20 && MemAddr <= 32'h7f23) begin
+			m_int_byteen = m_data_byteen;
+			m_data_byteen = 4'b0000;
 		end
 	end
 	 

@@ -42,6 +42,12 @@ module PR_E_M(
 	 
 	 input wire [1:0] MemTypeIn,
 	 
+	 input wire IsLoadIn, 
+	 input wire IsStoreIn,
+	 input wire IsInBDIn, 
+	 
+	 input wire CP0WriteIn,
+	 input wire IsEretIn, 
 	 input wire isSPIn,
 	 
     output reg [31:0] InstrOut,
@@ -62,6 +68,13 @@ module PR_E_M(
 	 
 	 output reg [1:0] MemTypeOut,
 	 
+	 output reg IsLoadOut, 
+	 output reg IsStoreOut,
+	 
+	 output reg IsInBDOut, 
+	 output reg CP0WriteOut,
+	 output reg IsEretOut, 
+	 
 	 output reg isSPOut
 	 //remember to add new signals to initialization in if(reset)!
     );
@@ -76,14 +89,22 @@ module PR_E_M(
 			RegDataSrcOut <= 3'bxxx;
 			MemWriteOut <= 0;
 			TnewOut <= 2'bxx;
-			PCOut <= `X_INIT_32;
+			//PCOut <= `X_INIT_32;
 			RD1Out <= `X_INIT_32;
 			RD2Out <= `X_INIT_32;
 			PCplus8Out <= `X_INIT_32;
 			ALUoutOut <= `X_INIT_32;
 			HiOrLoOut <= `X_INIT_32;
 			MemTypeOut <= 2'bxx;
+			IsLoadOut <= 0;
+			IsStoreOut <= 0;
+			//IsInBDOut <= 0;
+			CP0WriteOut <= 0;
+			IsEretOut <= 0;
 			isSPOut <= 0;
+			
+			PCOut <= PCIn;
+			IsInBDOut <= IsInBDIn;
 		end else if(en) begin
 			InstrOut <= InstrIn;
 			
@@ -103,6 +124,11 @@ module PR_E_M(
 			ALUoutOut <= ALUoutIn;
 			HiOrLoOut <= HiOrLoIn;
 			MemTypeOut <= MemTypeIn;
+			IsLoadOut <= IsLoadIn;
+			IsStoreOut <= IsStoreIn;
+			IsInBDOut <= IsInBDIn;
+			CP0WriteOut <= CP0WriteIn;
+			IsEretOut <= IsEretIn;
 			isSPOut <= isSPIn;
 		end
 	 end

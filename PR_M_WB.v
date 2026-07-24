@@ -42,6 +42,8 @@ module PR_M_WB(
 	 input wire [31:0] MemDataOutIn,
 	 input wire [31:0] HiOrLoIn,
 	 
+	 input wire [31:0] CP0DataIn,
+	 
 	 input wire isSPIn,
 	 
     
@@ -62,6 +64,8 @@ module PR_M_WB(
 	 output reg [31:0] ALUoutOut,
 	 output reg [31:0] MemDataOutOut,
 	 output reg [31:0] HiOrLoOut,
+	 
+	 output reg [31:0] CP0DataOut,
 	 
 	 output reg isSPOut
 	 //remember to add new signals to initialization in if(reset)!
@@ -86,6 +90,7 @@ module PR_M_WB(
 			ALUoutOut <= `X_INIT_32;
 			MemDataOutOut <= `X_INIT_32;
 			HiOrLoOut <= `X_INIT_32;
+			CP0DataOut<= `X_INIT_32;
 			isSPOut <= 0;
 		end else if(en) begin
 			InstrOut <= InstrIn;
@@ -105,7 +110,7 @@ module PR_M_WB(
 			ALUoutOut <= ALUoutIn;
 			MemDataOutOut <= MemDataOutIn;
 			HiOrLoOut <= HiOrLoIn;
-			
+			CP0DataOut <= CP0DataIn;
 			isSPOut <= isSPIn;
 		end
 	 end

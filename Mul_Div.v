@@ -28,7 +28,8 @@ module Mul_Div(
 	 input wire HiLoWrite, 
 	 input wire IsHi, 
     input wire Start,
-    output wire Busy,
+    input wire MDUen, 
+	 output wire Busy,
     output reg [31:0] Hi,
     output reg [31:0] Lo
     );
@@ -47,7 +48,7 @@ module Mul_Div(
 			Hi <= 0;
 			Lo <= 0;
 			cycleLeft <= 0;
-		end else begin
+		end else if(MDUen) begin
 			if(Start) begin
 				A <= SrcA;
 				B <= SrcB;
@@ -68,7 +69,6 @@ module Mul_Div(
 					end
 					cycleLeft <= (cycleLeft <= 0 ? 0 : cycleLeft - 1);
 				end
-				
 			end
 		end
 	end

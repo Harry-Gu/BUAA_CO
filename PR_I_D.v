@@ -27,9 +27,11 @@ module PR_I_D(
 	 
 	 input wire [31:0] InstrIn,		
 	 input wire [31:0] PCIn,
+	 input wire IsInBDIn, 
 	 
     output reg [31:0] InstrOut,
-	 output reg [31:0] PCOut
+	 output reg [31:0] PCOut, 
+	 output reg IsInBDOut
 	 
 	 //remember to add new signals to initialization in if(reset)!
     );
@@ -37,10 +39,14 @@ module PR_I_D(
 	 always@(posedge clk) begin
 		if(reset) begin
 			InstrOut <= 0;
-			PCOut <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
+			//PCOut <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
+			//IsInBDOut <= 0;
+			PCOut <= PCIn;
+			IsInBDOut <= IsInBDIn;
 		end else if(en) begin
 			InstrOut <= InstrIn;
 			PCOut <= PCIn;
+			IsInBDOut <= IsInBDIn;
 		end
 	 end
 

@@ -20,15 +20,15 @@
 //////////////////////////////////////////////////////////////////////////////////
 `include "consts.v"
 `include "instrs.v"
-//`default_nettype none
+`default_nettype none
 module ctrl(
-    input wire[31:0] Instr,
+    input wire [31:0] Instr,
 	 //for GRF
     output reg [4:0] RegA1,
     output reg [4:0] RegA2,
     output reg RegWrite,
 	 output reg [4:0] RegDst,
-	 output reg [2:0] RegDataSrc,	//ALU, MEM, PC or HI/LO ?
+	 output reg [2:0] RegDataSrc,	//ALU, MEM, PC, HI/LO or CP0?
 	 //for bit extender
 	 output reg IsSigned,
 	 //for shifter
@@ -51,6 +51,15 @@ module ctrl(
 	 output reg [2:0] MDUop,
 	 output reg [1:0] MemType,
 	 output reg HiLoWrite, 
+	 
+	 output reg IsSysCall, 
+	 output reg IsUnknownInstr, 
+	 output reg MightOverFlow, 	//only include calculate type instr, address overflow is not included
+	 output reg IsLoad, 
+	 output reg IsStore, 
+	 
+	 output reg CP0Write, 
+	 output reg IsEret, 
 	 
 	 output reg isSP
 	 //if you add more control signal, please initialize them inside always_comb
@@ -121,6 +130,13 @@ module ctrl(
 		 MDUop = 3'bxxx;
 		 MemType = 2'bxx;
 		 HiLoWrite = 0;
+		 IsSysCall = 0;
+		 IsUnknownInstr = 0;
+		 MightOverFlow = 0;
+		 IsLoad = 0;
+		 IsStore = 0;
+		 CP0Write = 0;
+		 IsEret = 0;
 		 isSP = 0;		//set isSP to 1, if the new instr cannot fit in the normal ones.
 		 //*/
 		case(op)
@@ -128,8 +144,8 @@ module ctrl(
 				//R-type
 				begin
 					case(funct)
-						`FUNCT_ADD, `FUNCT_ADDU:
-							//add, addu
+						`FUNCT_ADD:
+							//add
 							begin
 								//REGs
 								//Read 1
@@ -144,14 +160,38 @@ module ctrl(
 								//ALU
 								IsALUSrcBRD2 = 1;
 								ALUop = `ALU_add;
+								MightOverFlow = 1;
 								
 								//T
 								Tuse_rs = 1;
 								Tuse_rt = 1;
 								Tnew = 2;
 							end
-						`FUNCT_SUB, `FUNCT_SUBU:
-							//sub, subu
+						`FUNCT_ADDU:
+							//addu
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								//Read 2
+								RegA2 = rt;
+								//Write
+								RegWrite = 1;
+								RegDst = rd;
+								RegDataSrc = `REG_SRC_ALU;
+								
+								//ALU
+								IsALUSrcBRD2 = 1;
+								ALUop = `ALU_add;
+								MightOverFlow = 0;	//unsigned
+								
+								//T
+								Tuse_rs = 1;
+								Tuse_rt = 1;
+								Tnew = 2;
+							end
+						`FUNCT_SUB:
+							//sub
 							begin
 								//REGs
 								//Read 1
@@ -166,6 +206,30 @@ module ctrl(
 								//ALU
 								IsALUSrcBRD2 = 1;
 								ALUop = `ALU_sub;
+								MightOverFlow = 1;
+								
+								//T
+								Tuse_rs = 1;
+								Tuse_rt = 1;
+								Tnew = 2;
+							end
+						`FUNCT_SUBU:
+							//subu
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								//Read 2
+								RegA2 = rt;
+								//Write
+								RegWrite = 1;
+								RegDst = rd;
+								RegDataSrc = `REG_SRC_ALU;
+								
+								//ALU
+								IsALUSrcBRD2 = 1;
+								ALUop = `ALU_sub;
+								MightOverFlow = 0;		//unsigned
 								
 								//T
 								Tuse_rs = 1;
@@ -418,6 +482,19 @@ module ctrl(
 								Tuse_rs = 0;
 								Tnew = 1;
 							end
+						`FUNCT_SYSCALL:
+							begin
+								//syscall
+								IsSysCall = 1;
+							end
+						`FUNCT_NOP:
+							begin
+								IsUnknownInstr = 0;		//do nothing
+							end
+						default:
+							begin
+								IsUnknownInstr = 1;
+							end
 					endcase
 				end
 				
@@ -445,7 +522,31 @@ module ctrl(
 					Tuse_rs = 1;
 					Tnew = 2;
 				end
-			`OP_ADDI, `OP_ADDIU:
+			`OP_ADDI:
+				begin
+					//REGs
+					//Read 1
+					RegA1 = rs;
+					//Write
+					RegWrite = 1;
+					RegDst = rt;
+					RegDataSrc = `REG_SRC_ALU;
+					
+					//EXT
+					IsSigned = 1;		//addiu still use signed extend !
+					//shifetr
+					ShifterOp = `SHIFTER_MOD_0;
+					
+					//ALU
+					IsALUSrcBRD2 = 0;		//else: shifter
+					ALUop = `ALU_add;
+					MightOverFlow = 1;
+					
+					//T
+					Tuse_rs = 1;
+					Tnew = 2;
+				end
+			`OP_ADDIU:
 			//u in ADDIU means it wont trap when overflow, but still use sign-ext.
 				begin
 					//REGs
@@ -464,12 +565,14 @@ module ctrl(
 					//ALU
 					IsALUSrcBRD2 = 0;		//else: shifter
 					ALUop = `ALU_add;
+					MightOverFlow = 0;
 					
 					//T
 					Tuse_rs = 1;
 					Tnew = 2;
 				end
 			`OP_ANDI:
+			//this is andi , NOT addi !!!
 				begin
 					//REGs
 					//Read 1
@@ -534,6 +637,7 @@ module ctrl(
 					//MEMs
 					MemWrite = 0;	//read
 					MemType = `MEM_TYPE_B;
+					IsLoad = 1;
 					
 					//ALU
 					IsALUSrcBRD2 = 0;		//else: shifter
@@ -561,6 +665,7 @@ module ctrl(
 					//MEMs
 					MemWrite = 0;	//read
 					MemType = `MEM_TYPE_H;
+					IsLoad = 1;
 					
 					//ALU
 					IsALUSrcBRD2 = 1'b0;		//else: shifter
@@ -589,6 +694,7 @@ module ctrl(
 					//MEMs
 					MemWrite = 0;	//read
 					MemType = `MEM_TYPE_W;
+					IsLoad = 1;
 					
 					//ALU
 					IsALUSrcBRD2 = 1'b0;		//else: shifter
@@ -614,6 +720,7 @@ module ctrl(
 					//MEMs
 					MemWrite = 1;
 					MemType = `MEM_TYPE_B;
+					IsStore = 1;
 					
 					//ALU
 					IsALUSrcBRD2 = 1'b0;		//else: shifter
@@ -639,6 +746,7 @@ module ctrl(
 					//MEMs
 					MemWrite = 1;
 					MemType = `MEM_TYPE_H;
+					IsStore = 1;
 					
 					//ALU
 					IsALUSrcBRD2 = 1'b0;		//else: shifter
@@ -665,6 +773,7 @@ module ctrl(
 					//MEMs
 					MemWrite = 1;
 					MemType = `MEM_TYPE_W;
+					IsStore = 1;
 					
 					//ALU
 					IsALUSrcBRD2 = 1'b0;		//else: shifter
@@ -748,6 +857,51 @@ module ctrl(
 					Branch = 1;
 					BranchType = `BT_jal;
 				end
+			`OP_CP0:
+				//CP0
+				begin
+					case(rs)
+						`CP0_OP_MFC0:
+							begin
+								//REGs
+								//Write
+								RegWrite = 1;
+								RegDst = rt;
+								RegDataSrc = `REG_SRC_CP0;
+								
+								//T
+								Tnew = 3;
+							end
+						`CP0_OP_MTC0:
+							begin
+								//REGs
+								//Read 2
+								RegA2 = rt;
+								
+								// SP !!!!!!!!!!!!
+								RegDst = rd;	//just for forwarding proccess.
+								
+								//CP0
+								CP0Write = 1;
+								
+								//T
+								Tuse_rt = 2;
+							end
+						`CP0_OP_ERET:
+							begin
+								//Branch
+								Branch = 1;
+								BranchType = `BT_eret;
+								
+								//CP0
+								IsEret = 1;
+							end
+					endcase
+				end
+			default:
+				begin
+					IsUnknownInstr = 1;
+				end
 		endcase
 	 end
 
@@ -772,6 +926,8 @@ endmodule
 					//MEMs
 					MemWrite = 0;
 					MemType = 2'bxx;
+					IsLoad = 0;
+					IsStore = 0;
 					
 					//MDU
 					//Calc
@@ -788,6 +944,14 @@ endmodule
 					//ALU
 					IsALUSrcBRD2 = 1'bx;		//else: shifter
 					ALUop = 5'bxxxxx;
+					MightOverFlow = 0;
+					
+					//syscall
+					IsSysCall = 0;
+					
+					//CP0
+					CP0Write = 0;
+					IsEret = 0;
 					
 					//T
 					Tuse_rs = ?;

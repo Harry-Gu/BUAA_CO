@@ -28,8 +28,10 @@ module NPC(
     input wire [31:0] ShifterOut,
     input wire [25:0] Imm26,
     input wire [31:0] RD1,
+	 input wire [31:0] EPC, 
     output reg [31:0] NextPC,
-	 output wire [31:0] PCplus8
+	 output wire [31:0] PCplus8, 
+	 output reg Flush_Delay
     );
 
 	// behavior of beq, jal, jr, jalr in a delay slot is unpredictable.
@@ -39,6 +41,7 @@ module NPC(
 	assign PCplus8 = PC + 8;	// PC @D + 4 == PC @I + 8
 	
 	always@(*) begin
+		Flush_Delay = 0;
 		if(Branch) begin
 			case(BranchType)
 				`BT_beq:
@@ -65,6 +68,11 @@ module NPC(
 					//including jalr and jr.
 					begin
 						NextPC = RD1;
+					end
+				`BT_eret:
+					begin
+						NextPC = EPC;
+						Flush_Delay = 1;
 					end
 				default:
 					begin

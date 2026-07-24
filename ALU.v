@@ -23,15 +23,29 @@ module ALU(
     input wire [31:0] ALUSrcA,
     input wire [31:0] ALUSrcB,
     input wire [4:0] ALUop,
-    output reg [31:0] ALUout
+    output reg [31:0] ALUout, 
+	 output reg overflow
     );
 	 
 	 always@(*) begin
+		//init
+		overflow = 0;
+		
 		case(ALUop)
 			`ALU_add:
-				ALUout = ALUSrcA + ALUSrcB;
+				begin
+					ALUout = ALUSrcA + ALUSrcB;
+					if(ALUSrcA[31] == ALUSrcB[31] && ALUout[31] != ALUSrcA[31]) begin
+						overflow = 1;
+					end
+				end
 			`ALU_sub:
-				ALUout = ALUSrcA - ALUSrcB;
+				begin
+					ALUout = ALUSrcA - ALUSrcB;
+					if(ALUSrcA[31] != ALUSrcB[31] && ALUout[31] != ALUSrcA[31]) begin
+						overflow = 1;
+					end
+				end
 			`ALU_and:
 				ALUout = ALUSrcA & ALUSrcB;
 			`ALU_or:

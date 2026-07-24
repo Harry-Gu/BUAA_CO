@@ -56,6 +56,10 @@ module HazardHandler(
 	 input wire IsMD_E, 
 	 input wire Busy_E, 
 	 
+	 input wire IsEret_D, 
+	 input wire CP0Write_E, 
+	 input wire CP0Write_M, 
+	 
 	 
     output reg Stall_D,
 	 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -111,6 +115,11 @@ module HazardHandler(
 		// the HiLoWrite_D is not neccessary, because ,for instance, mflo after mthi is a UB.
 		// dont delete this, it will cause fail in online judge...... (so sad
 		if((IsMD_E || Busy_E) && (RegDataSrc_D == `REG_SRC_HI_LO || HiLoWrite_D)) begin
+			Stall_D = 1;
+		end
+		
+		//for eret (wait EPC to be set)
+		if(IsEret_D && ((CP0Write_E && RegDst_E == 14) || (CP0Write_M && RegDst_M == 14))) begin
 			Stall_D = 1;
 		end
 		

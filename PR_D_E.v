@@ -49,6 +49,14 @@ module PR_D_E(
 	 input wire [1:0] MemTypeIn,
 	 input wire HiLoWriteIn, 
 	 
+	 input wire MightOverFlowIn, 	//only include calculate type instr, address overflow is not included
+	 input wire IsLoadIn, 
+	 input wire IsStoreIn,
+	 
+	 input wire IsInBDIn, 
+	 input wire CP0WriteIn, 
+	 input wire IsEretIn,
+	 
 	 input wire isSPIn,
 	 
 	 
@@ -77,6 +85,14 @@ module PR_D_E(
 	 output reg [2:0] MDUopOut,
 	 output reg [1:0] MemTypeOut,
 	 output reg HiLoWriteOut, 
+
+	 output reg MightOverFlowOut, 	//only include calculate type instr, address overflow is not included
+	 output reg IsLoadOut, 
+	 output reg IsStoreOut,
+	 
+	 output reg IsInBDOut, 
+	 output reg CP0WriteOut, 
+	 output reg IsEretOut,
 	 
 	 output reg isSPOut
 	 //remember to add new signals to initialization in if(reset)!
@@ -94,7 +110,7 @@ module PR_D_E(
 			IsALUSrcBRD2Out <= 1'bx;
 			ALUopOut <= 5'bxxxxx;
 			TnewOut <= 2'bxx;
-			PCOut <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
+			//PCOut <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
 			RD1Out <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
 			RD2Out <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
 			ShifterOutOut <= 32'bxxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx;
@@ -104,7 +120,16 @@ module PR_D_E(
 			MDUopOut <= 3'bxxx;
 			MemTypeOut <= 2'bxx;
 			HiLoWriteOut <= 0;
+			MightOverFlowOut <= 0;
+			IsLoadOut <= 0;
+			IsStoreOut <= 0;
+			//IsInBDOut <= 0;
+			CP0WriteOut <= 0;
+			IsEretOut <= 0;
 			isSPOut <= 0;
+			
+			PCOut <= PCIn;
+			IsInBDOut <= IsInBDIn;
 		end else if(en) begin
 			InstrOut <= InstrIn;
 			
@@ -132,6 +157,13 @@ module PR_D_E(
 			MemTypeOut <= MemTypeIn;
 			HiLoWriteOut <= HiLoWriteIn;
 			
+			MightOverFlowOut <= MightOverFlowIn;
+			IsLoadOut <= IsLoadIn;
+			IsStoreOut <= IsStoreIn;
+			
+			IsInBDOut <= IsInBDIn;
+			CP0WriteOut <= CP0WriteIn;
+			IsEretOut <= IsEretIn;
 			isSPOut <= isSPIn;
 		end
 	 end

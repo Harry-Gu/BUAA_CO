@@ -17,6 +17,8 @@
 `define FUNCT_MTLO 		6'b010011
 `define FUNCT_JR			6'b001000
 `define FUNCT_JALR 		6'b001001
+`define FUNCT_NOP			6'b000000
+`define FUNCT_SYSCALL	6'b001100
 
 // I/J-type
 `define OP_LUI			6'b001111
@@ -34,4 +36,10 @@
 `define OP_BNE			6'b000101
 `define OP_JAL			6'b000011
 `define OP_J			6'b000010
+`define OP_CP0			6'b010000
+
+`define CP0_OP_MFC0	5'b00000
+`define CP0_OP_MTC0	5'b00100
+// eret actually sets instr[25] to be 1, and [24:6] to be 0.
+`define CP0_OP_ERET	5'b10000
 
