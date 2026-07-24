@@ -3,7 +3,7 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date:    16:46:17 11/05/2025 
+// Create Date:    23:05:48 11/12/2025 
 // Design Name: 
 // Module Name:    ctrl 
 // Project Name: 
@@ -18,42 +18,36 @@
 // Additional Comments: 
 //
 //////////////////////////////////////////////////////////////////////////////////
-`define ALUadd 5'b00000
-`define ALUsub 5'b00001
-`define ALUor 5'b00010
-`define ALUisEqual 5'b00100
-
-`define BT_beq 2'b00
-`define BT_jal 2'b01
-`define BT_jr 2'b10
+`include "consts.v"
+//`default_nettype none
 module ctrl(
-    input [31:0] Instr,
+    input wire[31:0] Instr,
 	 //for GRF
-    output reg [4:0] RegA1,		
+    output reg [4:0] RegA1,
     output reg [4:0] RegA2,
     output reg RegWrite,
-	 output reg IsA1SP,
-	 output reg IsA2SP,
 	 output reg [4:0] RegDst,
-	 output reg IsRegDstSP,
-	 output reg IsRegDataFromALU,	//else from MemDataOut
-	 output reg IsRegDataSP,
+	 output reg [1:0] RegDataSrc,	//ALU, MEM or PC ?
 	 //for bit extender
 	 output reg IsSigned,
 	 //for shifter
 	 output reg [1:0] ShifterOp,
 	 //for Data memory (DM)
 	 output reg MemWrite,
-	 output reg IsMemAddrALUout,	//else: SP case
-	 output reg IsMemDataRD2,		//else: SP case
 	 //for NPC
 	 output reg Branch,
 	 output reg [1:0] BranchType,
 	 //for ALU
-	 output reg IsALUSrcARD1,
 	 output reg IsALUSrcBRD2,		//else: shifter_out
-	 output reg [4:0] ALUop
-	 //if you add more control signal, please initial there inside always_comb
+	 output reg [4:0] ALUop,
+	 
+	 output reg [1:0] Tuse_rs,
+	 output reg [1:0] Tuse_rt,
+	 output reg [1:0] Tnew,
+	 
+	 
+	 output reg isSP
+	 //if you add more control signal, please initialize them inside always_comb
     );
 	 
 	 wire [5:0] op;
@@ -87,22 +81,16 @@ module ctrl(
 		 RegA1 = 5'b00000;
 		 RegA2 = 5'b00000;
 		 RegWrite = 0;
-		 IsA1SP = 1'b0;
-		 IsA2SP = 1'b0;
 		 RegDst = 5'b00000;
-		 IsRegDstSP = 1'b0;
-		 IsRegDataFromALU = 1'b1;
-		 IsRegDataSP = 1'b0;
+		 RegDataSrc = `REG_SRC_ALU;
 		 IsSigned = 1'b0;
 		 ShifterOp = 2'b00;
 		 MemWrite = 0;
-		 IsMemAddrALUout = 1'b1;
-		 IsMemDataRD2 = 1'b1;
 		 Branch = 0;
 		 BranchType = 2'b00;
-		 IsALUSrcARD1 = 1'b1;
 		 IsALUSrcBRD2 = 1'b1;
 		 ALUop = 5'b00000;
+		 isSP = 0;
 		 */
 		 
 		 //use x initialzation to make faster/lighter comb.
@@ -110,22 +98,19 @@ module ctrl(
 		 RegA1 = 5'bxxxxx;
 		 RegA2 = 5'bxxxxx;
 		 RegWrite = 0;
-		 IsA1SP = 1'bx;
-		 IsA2SP = 1'bx;
 		 RegDst = 5'bxxxxx;
-		 IsRegDstSP = 1'bx;
-		 IsRegDataFromALU = 1'bx;
-		 IsRegDataSP = 1'bx;
+		 RegDataSrc = 2'bxx;
 		 IsSigned = 1'bx;
 		 ShifterOp = 2'bxx;
 		 MemWrite = 0;
-		 IsMemAddrALUout = 1'bx;
-		 IsMemDataRD2 = 1'bx;
 		 Branch = 0;
 		 BranchType = 2'bxx;
-		 IsALUSrcARD1 = 1'bx;
 		 IsALUSrcBRD2 = 1'bx;
 		 ALUop = 5'bxxxxx;
+		 Tuse_rs = 2'b11;	
+		 Tuse_rt = 2'b11;
+		 Tnew = 2'b00;
+		 isSP = 0;		//set isSP to 1, if the new instr cannot fit in the normal ones.
 		 //*/
 		case(op)
 			6'b000000:
@@ -138,21 +123,21 @@ module ctrl(
 								//REGs
 								//Read 1
 								RegA1 = rs;
-								IsA1SP = 0;
 								//Read 2
 								RegA2 = rt;
-								IsA2SP = 0;
 								//Write
 								RegWrite = 1;
 								RegDst = rd;
-								IsRegDstSP = 0;
-								IsRegDataFromALU = 1;
-								IsRegDataSP = 0;
+								RegDataSrc = `REG_SRC_ALU;
 								
 								//ALU
-								IsALUSrcARD1 = 1;
 								IsALUSrcBRD2 = 1;
 								ALUop = `ALUadd;
+								
+								//T
+								Tuse_rs = 1;
+								Tuse_rt = 1;
+								Tnew = 2;
 							end
 						6'b100010, 6'b100011:
 							//sub, subu
@@ -160,21 +145,21 @@ module ctrl(
 								//REGs
 								//Read 1
 								RegA1 = rs;
-								IsA1SP = 0;
 								//Read 2
 								RegA2 = rt;
-								IsA2SP = 0;
 								//Write
 								RegWrite = 1;
 								RegDst = rd;
-								IsRegDstSP = 0;
-								IsRegDataFromALU = 1;
-								IsRegDataSP = 0;
+								RegDataSrc = `REG_SRC_ALU;
 								
 								//ALU
-								IsALUSrcARD1 = 1;
 								IsALUSrcBRD2 = 1;
 								ALUop = `ALUsub;
+								
+								//T
+								Tuse_rs = 1;
+								Tuse_rt = 1;
+								Tnew = 2;
 							end
 						6'b001000:
 							//jr
@@ -182,12 +167,34 @@ module ctrl(
 								//REGs
 								//Read 1
 								RegA1 = rs;
-								IsA1SP = 0;
 								
 								//Branch
 								Branch = 1;
 								BranchType = `BT_jr;	//jr
+								
+								//T
+								Tuse_rs = 0;
 							end
+						6'b001001:
+							//jalr
+							begin
+								//REGs
+								//Read 1
+								RegA1 = rs;
+								//Write
+								RegWrite = 1;
+								RegDst = rd;		//jalr rd, rs
+								RegDataSrc = `REG_SRC_PC;
+								
+								//Branch
+								Branch = 1;
+								BranchType = `BT_jr;	//jr
+								
+								//T
+								Tuse_rs = 0;
+								Tnew = 1;
+							end
+						
 					endcase
 				end
 			6'b001101:
@@ -196,13 +203,10 @@ module ctrl(
 					//REGs
 					//Read 1
 					RegA1 = rs;
-					IsA1SP = 0;
 					//Write
 					RegWrite = 1;
 					RegDst = rt;
-					IsRegDstSP = 0;
-					IsRegDataFromALU = 1;
-					IsRegDataSP = 0;
+					RegDataSrc = `REG_SRC_ALU;
 					
 					//EXT
 					IsSigned = 1'b0;
@@ -210,9 +214,12 @@ module ctrl(
 					ShifterOp = 2'b00;
 					
 					//ALU
-					IsALUSrcARD1 = 1;
 					IsALUSrcBRD2 = 0;	//shifter
 					ALUop = `ALUor;
+					
+					//T
+					Tuse_rs = 1;
+					Tnew = 2;
 				end
 			6'b001111:
 				//lui
@@ -220,13 +227,10 @@ module ctrl(
 					//REGs
 					//Read 1
 					RegA1 = 5'b00000;	//well actually, rs of lui is always 00000...
-					IsA1SP = 1'b0;
 					//Write
 					RegWrite = 1;
 					RegDst = rt;
-					IsRegDstSP = 0;
-					IsRegDataFromALU = 1;	//else: MemDataOut
-					IsRegDataSP = 0;
+					RegDataSrc = `REG_SRC_ALU;
 					
 					//EXT
 					IsSigned = 1'b0;	//lui may cause trouble if it uses x
@@ -234,9 +238,12 @@ module ctrl(
 					ShifterOp = 2'b10;	//16
 					
 					//ALU
-					IsALUSrcARD1 = 1;
 					IsALUSrcBRD2 = 0;		//else: shifter
 					ALUop = `ALUor;
+					
+					//T
+					Tuse_rs = 1;
+					Tnew = 2;
 				end
 			6'b100011:
 				//lw
@@ -244,13 +251,10 @@ module ctrl(
 					//REGs
 					//Read 1
 					RegA1 = base;
-					IsA1SP = 1'b0;
 					//Write
 					RegWrite = 1;
 					RegDst = rt;
-					IsRegDstSP = 1'b0;
-					IsRegDataFromALU = 1'b0;	//else: MemDataOut
-					IsRegDataSP = 1'b0;
+					RegDataSrc = `REG_SRC_MEM;
 					
 					//EXT
 					IsSigned = 1'b1;
@@ -259,12 +263,14 @@ module ctrl(
 					
 					//MEMs
 					MemWrite = 0;	//read
-					IsMemAddrALUout = 1'b1;
 					
 					//ALU
-					IsALUSrcARD1 = 1'b1;
 					IsALUSrcBRD2 = 1'b0;		//else: shifter
 					ALUop = `ALUadd;
+					
+					//T
+					Tuse_rs = 1;
+					Tnew = 3;
 				end
 			6'b101011:
 				//sw
@@ -272,10 +278,8 @@ module ctrl(
 					//REGs
 					//Read 1
 					RegA1 = base;
-					IsA1SP = 1'b0;
 					//Read 2
 					RegA2 = rt;
-					IsA2SP = 1'b0;
 					
 					//EXT
 					IsSigned = 1'b1;
@@ -284,13 +288,14 @@ module ctrl(
 					
 					//MEMs
 					MemWrite = 1;
-					IsMemAddrALUout = 1'b1;
-					IsMemDataRD2 = 1'b1;
 					
 					//ALU
-					IsALUSrcARD1 = 1'b1;
 					IsALUSrcBRD2 = 1'b0;		//else: shifter
 					ALUop = `ALUadd;
+					
+					//T
+					Tuse_rs = 1;
+					Tuse_rt = 2;
 				end
 			6'b000100:
 				//beq
@@ -298,10 +303,8 @@ module ctrl(
 					//REGs
 					//Read 1
 					RegA1 = rs;
-					IsA1SP = 1'b0;
 					//Read 2
 					RegA2 = rt;
-					IsA2SP = 1'b0;
 					
 					//EXT
 					IsSigned = 1'b1;
@@ -313,9 +316,12 @@ module ctrl(
 					BranchType = `BT_beq;
 					
 					//ALU
-					IsALUSrcARD1 = 1'b1;
 					IsALUSrcBRD2 = 1'b1;		//else: shifter
 					ALUop = `ALUisEqual;
+					
+					//T
+					Tuse_rs = 0;
+					Tuse_rt = 0;
 				end
 			6'b000011:
 				//jal
@@ -324,13 +330,14 @@ module ctrl(
 					//Write
 					RegWrite = 1;
 					RegDst = 5'b11111;	//$ra
-					IsRegDstSP = 1'b0;
-					IsRegDataFromALU = 1'bx;	//else: MemDataOut
-					IsRegDataSP = 1'b1;	//RegData is PC+4.
+					RegDataSrc = `REG_SRC_PC;
 				
 					//Branch
 					Branch = 1;
 					BranchType = `BT_jal;
+					
+					//T
+					Tnew = 1;
 				end
 		endcase
 	 end
@@ -341,16 +348,12 @@ endmodule
 					//REGs
 					//Read 1
 					RegA1 = 5'bxxxxx;
-					IsA1SP = 1'bx;
 					//Read 2
 					RegA2 = 5'bxxxxx;
-					IsA2SP = 1'bx;
 					//Write
 					RegWrite = 0;
 					RegDst = 5'bxxxxx;
-					IsRegDstSP = 1'bx;
-					IsRegDataFromALU = 1'bx;	//else: MemDataOut
-					IsRegDataSP = 1'bx;
+					RegDataSrc = 2'bxx;
 					
 					//EXT
 					IsSigned = 1'bx;
@@ -359,15 +362,12 @@ endmodule
 					
 					//MEMs
 					MemWrite = 0;
-					IsMemAddrALUout = 1'bx;
-					IsMemDataRD2 = 1'bx;
 					
 					//Branch
 					Branch = 0;
 					BranchType = 2'bxx;
 					
 					//ALU
-					IsALUSrcARD1 = 1'bx;
 					IsALUSrcBRD2 = 1'bx;		//else: shifter
 					ALUop = 5'bxxxxx;
 */

@@ -3,7 +3,7 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date:    17:10:47 11/05/2025 
+// Create Date:    23:12:55 11/12/2025 
 // Design Name: 
 // Module Name:    ALU 
 // Project Name: 
@@ -18,14 +18,11 @@
 // Additional Comments: 
 //
 //////////////////////////////////////////////////////////////////////////////////
-`define ALUadd 5'b00000
-`define ALUsub 5'b00001
-`define ALUor 5'b00010
-`define ALUisEqual 5'b00100
+`include "consts.v"
 module ALU(
-    input [31:0] ALUSrcA,
-    input [31:0] ALUSrcB,
-    input [4:0] ALUop,
+    input wire [31:0] ALUSrcA,
+    input wire [31:0] ALUSrcB,
+    input wire [4:0] ALUop,
     output reg [31:0] ALUout
     );
 	 

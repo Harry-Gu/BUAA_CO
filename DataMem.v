@@ -3,7 +3,7 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date:    19:04:00 11/07/2025 
+// Create Date:    23:13:29 11/12/2025 
 // Design Name: 
 // Module Name:    DataMem 
 // Project Name: 
@@ -18,15 +18,14 @@
 // Additional Comments: 
 //
 //////////////////////////////////////////////////////////////////////////////////
-//DM_SIZE is counted by word (4-byte).
-`define DM_SIZE (3072)
+`include "consts.v"
 module DataMem(
-    input [31:0] DataAddr,
-    input MemWrite,
-    input [31:0] MemDataIn,
-	 input [31:0] PC,
-	 input clk,
-	 input reset,
+    input wire [31:0] DataAddr,
+    input wire MemWrite,
+    input wire [31:0] MemDataIn,
+	 input wire [31:0] PC,
+	 input wire clk,
+	 input wire reset,
     output reg [31:0] MemDataOut
     );
 	
@@ -52,10 +51,11 @@ module DataMem(
 		end else if(MemWrite) begin
 			if(isLegalAddr) begin
 				dm_reg[DataAddr[13:2]] <= MemDataIn;
-				$display("@%h: *%h <= %h", PC, DataAddr, MemDataIn);
+				//$display("@%h: *%h <= %h", PC, DataAddr, MemDataIn);
+				$display("%d@%h: *%h <= %h", $time, PC, DataAddr, MemDataIn);
 			end else begin
 				//error: illegal address
-				$display("illegal addr in DM: @%h: *%h <= %h", PC, DataAddr, MemDataIn);
+				$display("illegal addr in DM: %d@%h: *%h <= %h", $time, PC, DataAddr, MemDataIn);
 			end
 		end
 	end

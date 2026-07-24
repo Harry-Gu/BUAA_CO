@@ -3,7 +3,7 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date:    17:40:11 11/05/2025 
+// Create Date:    23:15:32 11/12/2025 
 // Design Name: 
 // Module Name:    shifter 
 // Project Name: 
@@ -19,8 +19,8 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 module shifter(
-    input [31:0] ShifterIn,
-    input [1:0] ShifterOp,
+    input wire [31:0] ShifterIn,
+    input wire [1:0] ShifterOp,
     output reg [31:0] ShifterOut
     );
 

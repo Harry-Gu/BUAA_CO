@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date:    16:17:27 11/05/2025 
+// Create Date:    23:04:23 11/12/2025 
 // Design Name: 
-// Module Name:    misp 
+// Module Name:    mips 
 // Project Name: 
 // Target Devices: 
 // Tool versions: 
@@ -18,215 +18,410 @@
 // Additional Comments: 
 //
 //////////////////////////////////////////////////////////////////////////////////
-`define ALUadd 5'b00000
-`define ALUsub 5'b00001
-`define ALUor 5'b00010
-`define ALUisEqual 5'b00100
-
-`define BT_beq 2'b00
-`define BT_jal 2'b01
-`define BT_jr 2'b10
-
+`include "consts.v"
 //this setting will be used for all *.v on online judgement.
-//`default_nettype none
+`default_nettype none
 module mips(
     input wire clk,
     input wire reset
     );
-	 
-	 wire [5:0] op;
-	 wire [5:0] funct;
-	 wire [4:0] shamt;
-	 wire [4:0] rs;
-	 wire [4:0] rt;
-	 wire [4:0] rd;
-	 wire [4:0] base;
-	 
-	 //R type
-	 assign op = CurInstr[31:26];
-	 assign rs = CurInstr[25:21];
-	 assign rt = CurInstr[20:16];
-	 assign rd = CurInstr[15:11];
-	 assign shamt = CurInstr[10:6];
-	 assign funct = CurInstr[5:0];
-	 assign base = rs;		//base = rs
-	 
-	 //I type
-	 wire [15:0]imm16;
-	 assign imm16 = CurInstr[15:0];
-	 
-	 //J type
-	 wire [25:0] imm26;
-	 assign imm26 = CurInstr[25:0];
-	 
 	
-	//CTRL
-	wire [31:0] CurInstr;
-	wire [31:0] Instr;
-	wire [4:0] RegA1;
-	wire [4:0] RegA2;
-	wire RegWrite, IsA1SP, IsA2SP;
-	wire [4:0] RegDst;
-	wire IsRegDstSP, IsRegDataFromALU, IsRegDataSP, IsSigned;
-	wire [1:0] ShifterOp;
-	wire MemWrite, IsMemAddrALUout, IsMemDataRD2, Branch;
-	wire [1:0] BranchType;
-	wire IsALUSrcARD1, IsALUSrcBRD2;
-	wire [4:0] ALUop;
-	ctrl controller (
-    .Instr(Instr), 
-    .RegA1(RegA1), 
-    .RegA2(RegA2), 
-    .RegWrite(RegWrite), 
-    .IsA1SP(IsA1SP), 
-    .IsA2SP(IsA2SP), 
-    .RegDst(RegDst), 
-    .IsRegDstSP(IsRegDstSP), 
-    .IsRegDataFromALU(IsRegDataFromALU), 
-    .IsRegDataSP(IsRegDataSP), 
-    .IsSigned(IsSigned), 
-    .ShifterOp(ShifterOp), 
-    .MemWrite(MemWrite), 
-    .IsMemAddrALUout(IsMemAddrALUout), 
-    .IsMemDataRD2(IsMemDataRD2), 
-    .Branch(Branch), 
-    .BranchType(BranchType), 
-    .IsALUSrcARD1(IsALUSrcARD1), 
-    .IsALUSrcBRD2(IsALUSrcBRD2), 
-    .ALUop(ALUop)
-    );
-	assign Instr = CurInstr;	//IM
+	wire Stall_D, Stall_E;
 	
-	//GRF
-	wire [4:0] A1;
-	wire [4:0] A2;
-	wire [31:0] WriteData;
-	wire [4:0] WriteAddr;
-	wire [31:0] CurPC;
-	wire [31:0] RD1;
-	wire [31:0] RD2;
-	GRF registers (
-    .A1(A1), 
-    .A2(A2), 
-    .RegWrite(RegWrite), 
-    .WriteData(WriteData), 
-    .WriteAddr(WriteAddr), 
-    .clk(clk), 
-    .reset(reset), 
-    .CurPC(CurPC), 
-    .RD1(RD1), 
-    .RD2(RD2)
-    );
-	assign A1 = (IsA1SP ? 0 : RegA1);	//CTRL
-	assign A2 = (IsA2SP ? 0 : RegA2);	//CTRL
-	//assign RegWrite = RegWrite;		//CTRL
-	assign WriteData = (IsRegDataSP ? 
-								(Branch == 1 && BranchType == `BT_jal ? PCplus4 : 32'h00000000) :					//SP: has been used for "jal".
-								(IsRegDataFromALU ? ALUout : MemDataOut));
-	assign WriteAddr = (IsRegDstSP ? 5'b00000 : RegDst);		//SP
-	//assign clk = clk;
-	//assign reset = reset;
-	assign CurPC = PC;
-	 
+	wire flush_Delay;
+	assign flush_Delay = 0;	//delay slot is enable(only for branch/jump, but not for load)
+	//assign flush_Delay = Branch_D == 1 && BranchType_D == `BT_beq && IsEq_D;		//Branch delay disabled
+	
+	wire [31:0] Real_RD1_D;
+	wire [31:0] Real_RD2_D;
+	wire [31:0] Real_RD1_E;
+	wire [31:0] Real_RD2_E;
+	wire [31:0] Real_RD1_M;
+	wire [31:0] Real_RD2_M;
+	
+	
+	/*----------------------------- I stage --------------------------------*/
+
+	wire [31:0] NPC_I;
+	wire en_PC;
 	//PC register
-	wire [31:0] NextPC;
-	wire [31:0] PC;
+	wire [31:0] PC_I;
 	PCregister PCregister (
     .clk(clk), 
     .reset(reset), 
-    .NextPC(NextPC), 
-    .PC(PC)
+	 .en(en_PC),
+    .NextPC(NPC_I), 
+    .PC(PC_I)
     );
-	//assign clk = clk;
-	//assign reset = reset;
-	//assign NextPC = NextPC;
-	 
-	//EXT
-	wire [15:0]Imm16;
-	wire [31:0] Imm32;
-	BitExtender ext (
-    .Imm16(Imm16), 
-    .IsSigned(IsSigned), 
-    .Imm32(Imm32)
-    );
-	assign Imm16 = imm16;
-	//assign IsSigned = IsSigned;
+	//( if use NPC_D as NPC_I, the first instr will be exectued unexpectedly.)
+	assign NPC_I = (Branch_D ? NPC_D : PC_I + 4);	//to ensure the first instruction can be execute as normal. 
+	assign en_PC = (!Stall_E) && (!Stall_D);
 	
-	//ALU
-	wire [31:0] ALUSrcA;
-	wire [31:0] ALUSrcB;
-	wire [31:0] ALUout;
-	ALU alu (
-    .ALUSrcA(ALUSrcA), 
-    .ALUSrcB(ALUSrcB), 
-    .ALUop(ALUop), 
-    .ALUout(ALUout)
-    );
-	assign ALUSrcA = (IsALUSrcARD1 ? RD1 : 32'h00000000);
-	assign ALUSrcB = (IsALUSrcBRD2 ? RD2 : ShifterOut);
-	//assign ALUop = ALUop;
-	
-	//shifter
-	wire [31:0] ShifterIn;
-	wire [31:0] ShifterOut;
-	shifter shifter (
-    .ShifterIn(ShifterIn), 
-    .ShifterOp(ShifterOp), 
-    .ShifterOut(ShifterOut)
-    );
-	assign ShifterIn = Imm32;
-	//assign ShifterOp = ShifterOp;
-	
-	//NPC
-	wire ALUout_0;
-	wire [25:0] Imm26;
-	wire [31:0] PCplus4;
-	NPC npc (
-    .PC(PC), 
-    .Branch(Branch), 
-    .BranchType(BranchType), 
-    .ALUout_0(ALUout_0), 
-    .ShifterOut(ShifterOut), 
-    .Imm26(Imm26), 
-    .RD1(RD1), 
-    .NextPC(NextPC), 
-    .PCplus4(PCplus4)
-    );
-	//assign PC = PC;
-	//assign Branch = Branch;
-	//assign BranchType = BranchType;
-	assign ALUout_0 = ALUout[0];
-	//assign ShifterOut = ShifterOut;
-	assign Imm26 = imm26;
-	//assign RD1 = RD1;
-	
-	
+	wire [31:0] Instr_I;
 	//IM
-	wire [31:0] IMAddr;
 	InstrMem im (
-    .IMAddr(IMAddr), 
-    .CurInstr(CurInstr)
+    .IMAddr(PC_I), 
+    .CurInstr(Instr_I)
     );
-	assign IMAddr = PC;
 	
-	//DM
-	wire [31:0] DataAddr;
-	wire [31:0] MemDataOut;
-	wire [31:0] MemDataIn;
-	DataMem dm (
-    .DataAddr(DataAddr), 
-    .MemWrite(MemWrite), 
-    .MemDataIn(MemDataIn), 
-    .PC(PC), 
+	wire en_I;
+	wire reset_I;
+	//pipline register I/D
+	wire [31:0] Instr_D;
+	wire [31:0] PC_D;
+	PR_I_D PipelineRegister_I_D (
+    .clk(clk), 
+    .reset(reset_I), 
+    .en(en_I), 
+    .InstrIn(Instr_I), 
+    .PCIn(PC_I), 
+    .InstrOut(Instr_D), 
+    .PCOut(PC_D)
+    );
+	assign en_I = (!Stall_E) && (!Stall_D);
+	assign reset_I = reset || (flush_Delay && en_I);
+
+	/*----------------------------- D stage --------------------------------*/
+	
+	//controller
+	wire [4:0] RegA1_D, RegA2_D, RegDst_D, ALUop_D;
+	wire RegWrite_D, IsSigned_D, MemWrite_D, Branch_D, IsALUSrcBRD2_D, isSP_D;
+	wire [1:0] RegDataSrc_D, ShifterOp_D, BranchType_D;
+	wire [1:0] Tuse_rs_D, Tuse_rt_D, Tnew_D;
+ 	ctrl controller (
+    .Instr(Instr_D), 
+    .RegA1(RegA1_D), 
+    .RegA2(RegA2_D), 
+    .RegWrite(RegWrite_D), 
+    .RegDst(RegDst_D), 
+    .RegDataSrc(RegDataSrc_D), 
+    .IsSigned(IsSigned_D), 
+    .ShifterOp(ShifterOp_D), 
+    .MemWrite(MemWrite_D), 
+    .Branch(Branch_D), 
+    .BranchType(BranchType_D), 
+    .IsALUSrcBRD2(IsALUSrcBRD2_D), 
+    .ALUop(ALUop_D), 
+    .Tuse_rs(Tuse_rs_D), 
+    .Tuse_rt(Tuse_rt_D), 
+    .Tnew(Tnew_D), 
+    .isSP(isSP_D)
+    );
+	
+	wire [31:0] DataWriteBack_WB, PC_WB;	//the assign of it is in WB stage.
+	wire RegWrite_WB;
+	wire [4:0] RegDst_WB;
+	//GRF
+	wire [31:0] RD1_D;
+	wire [31:0] RD2_D;
+	GRF registers (
+    .A1(RegA1_D), 
+    .A2(RegA2_D), 
+    .RegWrite(RegWrite_WB), 
+    .WriteData(DataWriteBack_WB), 
+    .WriteAddr(RegDst_WB), 
     .clk(clk), 
     .reset(reset), 
-    .MemDataOut(MemDataOut)
+    .CurPC(PC_WB), 
+    .RD1(RD1_D), 
+    .RD2(RD2_D)
     );
-	assign DataAddr = (IsMemAddrALUout ? ALUout : 32'h00000000);	//else: SP	
-	//assign MemWrite = MemWrite;
-	assign MemDataIn = (IsMemDataRD2 ? RD2 : 32'h00000000);	//else: SP
-	//assign PC = PC;
-	//assign clk = clk;
-	//assign reset = reset;
+	
+	wire [31:0] IsEqSrcA_D, IsEqSrcB_D;
+	// IsEq (for branch)
+	wire IsEq_D;
+	IsEq IsEq (
+    .IsEqSrcA(IsEqSrcA_D), 
+    .IsEqSrcB(IsEqSrcB_D), 
+    .IsEq(IsEq_D)
+    );
+	//forwarding from E should have higher priority than from M stage.
+	assign IsEqSrcA_D = Real_RD1_D;
+	assign IsEqSrcB_D = Real_RD2_D;
+	
+	wire [15:0] Imm16_D;
+	//EXT
+	wire [31:0] Imm32_D;
+	BitExtender ext (
+    .Imm16(Imm16_D), 
+    .IsSigned(IsSigned_D), 
+    .Imm32(Imm32_D)
+    );
+	assign Imm16_D = Instr_D[15:0];
+	
+	wire [31:0] ShifterIn_D;
+	//shifter
+	wire [31:0] ShifterOut_D;
+	shifter shifter (
+    .ShifterIn(ShifterIn_D), 
+    .ShifterOp(ShifterOp_D), 
+    .ShifterOut(ShifterOut_D)
+    );
+	assign ShifterIn_D = Imm32_D;
+	
+	wire [25:0] Imm26_D;
+	wire [31:0] RD1_for_jr_D;
+	//NPC
+	wire [31:0] NPC_D, PCplus8_D;	//return address
+	NPC npc (
+    .PC(PC_D), 
+    .Branch(Branch_D), 
+    .BranchType(BranchType_D), 
+    .isEq(IsEq_D), 
+    .ShifterOut(ShifterOut_D), 
+    .Imm26(Imm26_D), 
+    .RD1(RD1_for_jr_D), 
+    .NextPC(NPC_D), 
+    .PCplus8(PCplus8_D)
+    );
+	assign Imm26_D = Instr_D[25:0];
+	// also include jalr
+	assign RD1_for_jr_D = Real_RD1_D;
+	
+	wire reset_D_E, en_D_E;
+	//pipeline register D/E
+	wire [31:0] Instr_E, PC_E, RD1_E, RD2_E, ShifterOut_E, PCplus8_E;
+	wire [4:0] RegA1_E, RegA2_E, RegDst_E, ALUop_E;
+	wire RegWrite_E, MemWrite_E, IsALUSrcBRD2_E, isSP_E;
+	wire [1:0] RegDataSrc_E, Tnew_E;
+	PR_D_E PipelineRegister_D_E (
+    .clk(clk), 
+    .reset(reset_D_E), 
+    .en(en_D_E), 
+    .InstrIn(Instr_D), 
+    .RegA1In(RegA1_D), 
+    .RegA2In(RegA2_D), 
+    .RegWriteIn(RegWrite_D), 
+    .RegDstIn(RegDst_D), 
+    .RegDataSrcIn(RegDataSrc_D), 
+    .MemWriteIn(MemWrite_D), 
+    .IsALUSrcBRD2In(IsALUSrcBRD2_D), 
+    .ALUopIn(ALUop_D), 
+    .TnewIn(Tnew_D), 
+    .PCIn(PC_D), 
+    .RD1In(Real_RD1_D),
+    .RD2In(Real_RD2_D), 
+	 .ShifterOutIn(ShifterOut_D), 
+	 .PCplus8In(PCplus8_D), 
+	 .isSPIn(isSP_D), 
+    .InstrOut(Instr_E), 
+    .RegA1Out(RegA1_E), 
+    .RegA2Out(RegA2_E), 
+    .RegWriteOut(RegWrite_E), 
+    .RegDstOut(RegDst_E), 
+    .RegDataSrcOut(RegDataSrc_E), 
+    .MemWriteOut(MemWrite_E), 
+    .IsALUSrcBRD2Out(IsALUSrcBRD2_E), 
+    .ALUopOut(ALUop_E), 
+    .TnewOut(Tnew_E), 
+    .PCOut(PC_E), 
+    .RD1Out(RD1_E), 
+    .RD2Out(RD2_E),
+	 .ShifterOutOut(ShifterOut_E),
+	 .PCplus8Out(PCplus8_E), 
+	 .isSPOut(isSP_E)
+    );
+	//if Stall_E == 1 then it should not be flushed, but should be flushed until the instr in E stage be moved to enxt stage.
+	assign reset_D_E = reset || (Stall_D == 1 && Stall_E == 0);	
+	assign en_D_E = !Stall_E;
+	
+	/*----------------------------- E stage --------------------------------*/
+	
+	wire [31:0] ALUSrcA_E;
+	wire [31:0] ALUSrcB_E;
+	//ALU
+	wire [31:0] ALUout_E;
+	ALU alu (
+    .ALUSrcA(ALUSrcA_E), 
+    .ALUSrcB(ALUSrcB_E), 
+    .ALUop(ALUop_E), 
+    .ALUout(ALUout_E)
+    );
+	
+	assign ALUSrcA_E = Real_RD1_E;
+	assign ALUSrcB_E = (IsALUSrcBRD2_E ? Real_RD2_E : ShifterOut_E);
+	wire en_E_M, reset_E_M;
+	//pipeline register E/M
+	wire [31:0] Instr_M, PC_M, RD1_M, RD2_M, PCplus8_M, ALUout_M;
+	wire [4:0] RegA1_M, RegA2_M, RegDst_M;
+	wire RegWrite_M, MemWrite_M, isSP_M;
+	wire [1:0] RegDataSrc_M, Tnew_M;
+	PR_E_M PipelineRegister_E_M (
+    .clk(clk), 
+    .reset(reset_E_M), 
+    .en(en_E_M), 
+    .InstrIn(Instr_E), 
+    .RegA1In(RegA1_E), 
+    .RegA2In(RegA2_E), 
+    .RegWriteIn(RegWrite_E), 
+    .RegDstIn(RegDst_E), 
+    .RegDataSrcIn(RegDataSrc_E), 
+    .MemWriteIn(MemWrite_E), 
+    .TnewIn(Tnew_E), 
+    .PCIn(PC_E), 
+    .RD1In(Real_RD1_E), 
+    .RD2In(Real_RD2_E), 
+    .PCplus8In(PCplus8_E),
+    .ALUoutIn(ALUout_E), 
+    .isSPIn(isSP_E), 
+    .InstrOut(Instr_M), 
+    .RegA1Out(RegA1_M), 
+    .RegA2Out(RegA2_M), 
+    .RegWriteOut(RegWrite_M), 
+    .RegDstOut(RegDst_M), 
+    .RegDataSrcOut(RegDataSrc_M), 
+    .MemWriteOut(MemWrite_M), 
+    .TnewOut(Tnew_M), 
+    .PCOut(PC_M), 
+    .RD1Out(RD1_M), 
+    .RD2Out(RD2_M), 
+    .PCplus8Out(PCplus8_M), 
+    .ALUoutOut(ALUout_M), 
+    .isSPOut(isSP_M)
+    );
+	assign en_E_M = 1;
+	assign reset_E_M = reset || Stall_E;
+	
+	/*----------------------------- M stage --------------------------------*/
+	
+	//DM
+	wire [31:0] DataAddr_M;
+	wire [31:0] MemDataOut_M;
+	wire [31:0] MemDataIn_M;
+	DataMem dm (
+    .DataAddr(DataAddr_M), 
+    .MemWrite(MemWrite_M), 
+    .MemDataIn(MemDataIn_M), 
+    .PC(PC_M), 
+    .clk(clk), 
+    .reset(reset), 
+    .MemDataOut(MemDataOut_M)
+    );
+	assign DataAddr_M = ALUout_M;
+	assign MemDataIn_M = Real_RD2_M;
+	
+	wire en_M_WB;
+	//pipeline register M/WB
+	wire [31:0] Instr_WB, RD1_WB, RD2_WB, PCplus8_WB, ALUout_WB, MemDataOut_WB; 
+	wire isSP_WB;
+	wire [1:0] RegDataSrc_WB, Tnew_WB;
+	PR_M_WB PipelineRegister_M_WB (
+    .clk(clk), 
+    .reset(reset), 
+    .en(en_M_WB), 
+    .InstrIn(Instr_M), 
+    .RegWriteIn(RegWrite_M), 
+    .RegDstIn(RegDst_M), 
+    .RegDataSrcIn(RegDataSrc_M), 
+    .TnewIn(Tnew_M), 
+    .PCIn(PC_M), 
+    .RD1In(Real_RD1_M), 
+    .RD2In(Real_RD2_M), 
+    .PCplus8In(PCplus8_M), 
+    .ALUoutIn(ALUout_M), 
+    .MemDataOutIn(MemDataOut_M), 
+    .isSPIn(isSP_M), 
+    .InstrOut(Instr_WB), 
+    .RegWriteOut(RegWrite_WB), 
+    .RegDstOut(RegDst_WB), 
+    .RegDataSrcOut(RegDataSrc_WB), 
+    .TnewOut(Tnew_WB), 
+    .PCOut(PC_WB), 
+    .RD1Out(RD1_WB), 
+    .RD2Out(RD2_WB), 
+    .PCplus8Out(PCplus8_WB), 
+    .ALUoutOut(ALUout_WB), 
+    .MemDataOutOut(MemDataOut_WB), 
+    .isSPOut(isSP_WB)
+    );
+	assign en_M_WB = 1;
+	
+	/*----------------------------- WB stage -------------------------------*/
+	
+	// write back
+	assign DataWriteBack_WB = 	(RegDataSrc_WB == `REG_SRC_ALU) 	? ALUout_WB :
+										(RegDataSrc_WB == `REG_SRC_MEM) 	? MemDataOut_WB :
+										(RegDataSrc_WB == `REG_SRC_PC) 	? PCplus8_WB :
+																			  32'h00000000;
+																		  
+	/*----------------------------Harzard handler---------------------------*/
+	
 	 
+	// hazard handler
+	wire forward_E_to_Real_RD1_D;
+	wire forward_E_to_Real_RD2_D;
+	wire forward_M_to_Real_RD1_D;
+	wire forward_M_to_Real_RD2_D;
+	wire forward_M_to_Real_RD1_E;
+	wire forward_M_to_Real_RD2_E;
+	wire forward_WB_to_Real_RD1_E;
+	wire forward_WB_to_Real_RD2_E;
+	wire forward_WB_to_Real_RD1_M;
+	wire forward_WB_to_Real_RD2_M;
+	HazardHandler hazardHandler (
+    .RegA1_D(RegA1_D), 
+    .Tuse_RD1_D(Tuse_rs_D), 
+    .RegA2_D(RegA2_D), 
+    .Tuse_RD2_D(Tuse_rt_D), 
+    .isD_SP(isSP_D), 
+    .isE_SP(isSP_E), 
+    .isM_SP(isSP_M), 
+    .isWB_SP(isSP_WB), 
+    .RegA1_E(RegA1_E), 
+    .RegA2_E(RegA2_E), 
+    .RegA1_M(RegA1_M), 
+    .RegA2_M(RegA2_M), 
+    .RegDst_E(RegDst_E), 
+    .RegWrite_E(RegWrite_E), 
+    .Tnew_E(Tnew_E), 
+    .RegDst_M(RegDst_M), 
+    .RegWrite_M(RegWrite_M), 
+    .Tnew_M(Tnew_M), 
+    .RegDst_WB(RegDst_WB), 
+    .RegWrite_WB(RegWrite_WB), 
+    .Stall_D(Stall_D), 
+    .Stall_E(Stall_E), 
+    .forward_E_to_Real_RD1_D(forward_E_to_Real_RD1_D), 
+    .forward_E_to_Real_RD2_D(forward_E_to_Real_RD2_D), 
+    .forward_M_to_Real_RD1_D(forward_M_to_Real_RD1_D), 
+    .forward_M_to_Real_RD2_D(forward_M_to_Real_RD2_D), 
+    .forward_M_to_Real_RD1_E(forward_M_to_Real_RD1_E), 
+    .forward_M_to_Real_RD2_E(forward_M_to_Real_RD2_E), 
+    .forward_WB_to_Real_RD1_E(forward_WB_to_Real_RD1_E), 
+    .forward_WB_to_Real_RD2_E(forward_WB_to_Real_RD2_E), 
+    .forward_WB_to_Real_RD1_M(forward_WB_to_Real_RD1_M), 
+    .forward_WB_to_Real_RD2_M(forward_WB_to_Real_RD2_M)
+    );
+	
+	//forwarder
+	Forwarder forwarder (
+    .RD1_D(RD1_D), 
+    .RD2_D(RD2_D), 
+    .RD1_E(RD1_E), 
+    .RD2_E(RD2_E), 
+    .RD1_M(RD1_M), 
+    .RD2_M(RD2_M), 
+    .forward_E_to_Real_RD1_D(forward_E_to_Real_RD1_D), 
+    .forward_E_to_Real_RD2_D(forward_E_to_Real_RD2_D), 
+    .forward_M_to_Real_RD1_D(forward_M_to_Real_RD1_D), 
+    .forward_M_to_Real_RD2_D(forward_M_to_Real_RD2_D), 
+    .forward_M_to_Real_RD1_E(forward_M_to_Real_RD1_E), 
+    .forward_M_to_Real_RD2_E(forward_M_to_Real_RD2_E), 
+    .forward_WB_to_Real_RD1_E(forward_WB_to_Real_RD1_E), 
+    .forward_WB_to_Real_RD2_E(forward_WB_to_Real_RD2_E), 
+    .forward_WB_to_Real_RD1_M(forward_WB_to_Real_RD1_M), 
+    .forward_WB_to_Real_RD2_M(forward_WB_to_Real_RD2_M), 
+    .PCplus8_E(PCplus8_E), 
+    .PCplus8_M(PCplus8_M), 
+    .ALUout_M(ALUout_M), 
+    .RegDataSrc_M(RegDataSrc_M), 
+    .DataWriteBack_WB(DataWriteBack_WB), 
+    .Real_RD1_D(Real_RD1_D), 
+    .Real_RD2_D(Real_RD2_D), 
+    .Real_RD1_E(Real_RD1_E), 
+    .Real_RD2_E(Real_RD2_E), 
+    .Real_RD1_M(Real_RD1_M), 
+    .Real_RD2_M(Real_RD2_M)
+    );
+	
 endmodule

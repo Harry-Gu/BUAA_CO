@@ -3,7 +3,7 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date:    18:47:41 11/07/2025 
+// Create Date:    23:11:43 11/12/2025 
 // Design Name: 
 // Module Name:    InstrMem 
 // Project Name: 
@@ -18,9 +18,9 @@
 // Additional Comments: 
 //
 //////////////////////////////////////////////////////////////////////////////////
-`define IM_SIZE (4096)
+`include "consts.v"
 module InstrMem(
-    input [31:0] IMAddr,
+    input wire [31:0] IMAddr,
     output reg [31:0] CurInstr
     );
 	

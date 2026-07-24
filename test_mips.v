@@ -4,10 +4,10 @@
 // Company: 
 // Engineer:
 //
-// Create Date:   20:19:27 11/07/2025
+// Create Date:   22:28:29 11/15/2025
 // Design Name:   mips
-// Module Name:   D:/my_program/verilog_ISE/P4/mips_P4/test_mips.v
-// Project Name:  mips_P4
+// Module Name:   D:/my_program/verilog_ISE/P5/test_mips.v
+// Project Name:  P5
 // Target Device:  
 // Tool versions:  
 // Description: 
@@ -38,16 +38,16 @@ module test_mips;
 		// Initialize Inputs
 		clk = 0;
 		reset = 1;
+		#10 reset = 0;
 
 		// Wait 100 ns for global reset to finish
-		#10;
-		reset = 0;
+		#100;
         
 		// Add stimulus here
 
 	end
 	
-	always #1 clk = ~clk;
+	always #5 clk = ~clk;
       
 endmodule
 

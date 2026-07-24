@@ -3,7 +3,7 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date:    17:06:32 11/05/2025 
+// Create Date:    23:14:48 11/12/2025 
 // Design Name: 
 // Module Name:    PCregister 
 // Project Name: 
@@ -19,18 +19,20 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 module PCregister(
-    input clk,
-    input reset,
-    input [31:0] NextPC,
+    input wire clk,
+    input wire reset,
+	 input wire en,
+    input wire [31:0] NextPC,
 	 output reg [31:0] PC
     );
 	
 	always@(posedge clk) begin
 		if(reset) begin
 			PC <= 32'h00003000;
-		end else begin
+		end else if(en) begin
 			PC <= NextPC;
 		end
 	end
 
 endmodule
+

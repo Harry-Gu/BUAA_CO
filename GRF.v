@@ -3,7 +3,7 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date:    16:20:06 11/05/2025 
+// Create Date:    23:09:17 11/12/2025 
 // Design Name: 
 // Module Name:    GRF 
 // Project Name: 
@@ -19,23 +19,23 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 module GRF(
-    input [4:0] A1,
-    input [4:0] A2,
-    input RegWrite,
-    input [31:0] WriteData,
-    input [4:0] WriteAddr,
-    input clk,
-    input reset,
-    input [31:0] CurPC,
-	 output [31:0] RD1,
-    output [31:0] RD2
+    input wire [4:0] A1,
+    input wire [4:0] A2,
+    input wire RegWrite,
+    input wire [31:0] WriteData,
+    input wire [4:0] WriteAddr,
+    input wire clk,
+    input wire reset,
+    input wire [31:0] CurPC,
+	 output wire [31:0] RD1,
+    output wire [31:0] RD2
     );
 	
 	reg[31:0] registers[31:0];
 	
 	//read
-	assign RD1 = (A1 == 5'b00000 ? 32'h00000000 : registers[A1]);
-	assign RD2 = (A2 == 5'b00000 ? 32'h00000000 : registers[A2]);
+	assign RD1 = (A1 == 5'b00000 ? 32'h00000000 : (A1 == WriteAddr && RegWrite == 1 ? WriteData : registers[A1]));	//inner forwarding in stage WB.
+	assign RD2 = (A2 == 5'b00000 ? 32'h00000000 : (A2 == WriteAddr && RegWrite == 1 ? WriteData : registers[A2]));
 	
 	//write and reset
 	integer i;
@@ -47,7 +47,8 @@ module GRF(
 		end else begin
 			if(RegWrite) begin
 				registers[WriteAddr] <= WriteData;
-				$display("@%h: $%d <= %h", CurPC, WriteAddr, WriteData);
+				//$display("@%h: $%d <= %h", CurPC, WriteAddr, WriteData);
+				$display("%d@%h: $%d <= %h", $time, CurPC, WriteAddr, WriteData);
 			end
 		end
 	

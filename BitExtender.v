@@ -3,7 +3,7 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date:    17:25:14 11/05/2025 
+// Create Date:    21:37:52 11/14/2025 
 // Design Name: 
 // Module Name:    BitExtender 
 // Project Name: 
@@ -19,9 +19,9 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 module BitExtender(
-    input [15:0] Imm16,
-    input IsSigned,
-    output [31:0] Imm32
+    input wire [15:0] Imm16,
+    input wire IsSigned,
+    output wire [31:0] Imm32
     );
 	
 	assign Imm32 = IsSigned == 1 ?
