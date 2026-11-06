@@ -57,9 +57,13 @@ module mips_txt;
     end
 
     initial begin
+        $dumpfile("wave.vcd");
+        $dumpvars(0, mips_txt);
         clk = 0;
         reset = 1;
         #20 reset = 0;
+        #10000;
+        $finish;
     end
 
     always @(*) begin
