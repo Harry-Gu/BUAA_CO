@@ -41,6 +41,12 @@ module mips(
 	 wire [4:0] rt;
 	 wire [4:0] rd;
 	 wire [4:0] base;
+	 wire [31:0] CurInstr;
+	 wire [31:0] PCplus4;
+	 wire [31:0] PC;
+	 wire [31:0] ShifterOut;
+	 wire [31:0] ALUout;
+	 wire [31:0] MemDataOut;
 	 
 	 //R type
 	 assign op = CurInstr[31:26];
@@ -61,7 +67,6 @@ module mips(
 	 
 	
 	//CTRL
-	wire [31:0] CurInstr;
 	wire [31:0] Instr;
 	wire [4:0] RegA1;
 	wire [4:0] RegA2;
@@ -130,7 +135,6 @@ module mips(
 	 
 	//PC register
 	wire [31:0] NextPC;
-	wire [31:0] PC;
 	PCregister PCregister (
     .clk(clk), 
     .reset(reset), 
@@ -155,7 +159,6 @@ module mips(
 	//ALU
 	wire [31:0] ALUSrcA;
 	wire [31:0] ALUSrcB;
-	wire [31:0] ALUout;
 	ALU alu (
     .ALUSrcA(ALUSrcA), 
     .ALUSrcB(ALUSrcB), 
@@ -168,7 +171,6 @@ module mips(
 	
 	//shifter
 	wire [31:0] ShifterIn;
-	wire [31:0] ShifterOut;
 	shifter shifter (
     .ShifterIn(ShifterIn), 
     .ShifterOp(ShifterOp), 
@@ -180,7 +182,6 @@ module mips(
 	//NPC
 	wire ALUout_0;
 	wire [25:0] Imm26;
-	wire [31:0] PCplus4;
 	NPC npc (
     .PC(PC), 
     .Branch(Branch), 
@@ -211,7 +212,6 @@ module mips(
 	
 	//DM
 	wire [31:0] DataAddr;
-	wire [31:0] MemDataOut;
 	wire [31:0] MemDataIn;
 	DataMem dm (
     .DataAddr(DataAddr), 
