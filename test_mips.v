@@ -35,6 +35,8 @@ module test_mips;
 	);
 
 	initial begin
+		$dumpfile("wave.vcd");
+		$dumpvars(0, test_mips);
 		// Initialize Inputs
 		clk = 0;
 		reset = 1;
@@ -44,6 +46,8 @@ module test_mips;
 		reset = 0;
         
 		// Add stimulus here
+		#10000;
+		$finish;
 
 	end
 	
