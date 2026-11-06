@@ -1,0 +1,14 @@
+## test ##
+code.txt
+
+## iverilog ##
+mips.vvp
+
+## macOS ##
+.DS_Store
+
+## gtkwave ##
+wave.vcd
+
+## submit ##
+*.zip
