@@ -72,10 +72,14 @@ module test_mips_without_int(
 	);
 
 	initial begin
+		$dumpfile("wave.vcd");
+		$dumpvars(0, test_mips_without_int);
 		clk <= 0;
 		reset <= 1;
 		interrupt <= 0;
 		#20 reset <= 0;
+		#10000;
+		$finish;
 	end
 
 	integer i;
