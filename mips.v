@@ -27,6 +27,8 @@ module mips(
     );
 	
 	wire Stall_D, Stall_E;
+	wire Branch_D;
+	wire [31:0] NPC_D;
 	
 	wire flush_Delay;
 	assign flush_Delay = 0;	//delay slot is enable(only for branch/jump, but not for load)
@@ -85,7 +87,7 @@ module mips(
 	
 	//controller
 	wire [4:0] RegA1_D, RegA2_D, RegDst_D, ALUop_D;
-	wire RegWrite_D, IsSigned_D, MemWrite_D, Branch_D, IsALUSrcBRD2_D, isSP_D;
+	wire RegWrite_D, IsSigned_D, MemWrite_D, IsALUSrcBRD2_D, isSP_D;
 	wire [1:0] RegDataSrc_D, ShifterOp_D, BranchType_D;
 	wire [1:0] Tuse_rs_D, Tuse_rt_D, Tnew_D;
  	ctrl controller (
@@ -162,7 +164,7 @@ module mips(
 	wire [25:0] Imm26_D;
 	wire [31:0] RD1_for_jr_D;
 	//NPC
-	wire [31:0] NPC_D, PCplus8_D;	//return address
+	wire [31:0] PCplus8_D;	//return address
 	NPC npc (
     .PC(PC_D), 
     .Branch(Branch_D), 
