@@ -1,23 +1,4 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date:    16:46:17 11/05/2025 
-// Design Name: 
-// Module Name:    ctrl 
-// Project Name: 
-// Target Devices: 
-// Tool versions: 
-// Description: 
-//
-// Dependencies: 
-//
-// Revision: 
-// Revision 0.01 - File Created
-// Additional Comments: 
-//
-//////////////////////////////////////////////////////////////////////////////////
 `define ALUadd 5'b00000
 `define ALUsub 5'b00001
 `define ALUor 5'b00010
@@ -28,32 +9,42 @@
 `define BT_jr 2'b10
 module ctrl(
     input [31:0] Instr,
-	 //for GRF
+	//for GRF
     output reg [4:0] RegA1,		
     output reg [4:0] RegA2,
     output reg RegWrite,
-	 output reg IsA1SP,
-	 output reg IsA2SP,
-	 output reg [4:0] RegDst,
-	 output reg IsRegDstSP,
-	 output reg IsRegDataFromALU,	//else from MemDataOut
-	 output reg IsRegDataSP,
-	 //for bit extender
-	 output reg IsSigned,
-	 //for shifter
-	 output reg [1:0] ShifterOp,
-	 //for Data memory (DM)
-	 output reg MemWrite,
-	 output reg IsMemAddrALUout,	//else: SP case
-	 output reg IsMemDataRD2,		//else: SP case
-	 //for NPC
-	 output reg Branch,
-	 output reg [1:0] BranchType,
-	 //for ALU
-	 output reg IsALUSrcARD1,
-	 output reg IsALUSrcBRD2,		//else: shifter_out
-	 output reg [4:0] ALUop
-	 //if you add more control signal, please initial there inside always_comb
+	output reg IsA1SP,
+	output reg IsA2SP,
+	output reg [4:0] RegDst,
+	output reg IsRegDstSP,
+	output reg IsRegDataFromALU,	//else from MemDataOut
+	output reg IsRegDataSP,
+	//for bit extender
+	output reg IsSigned,
+	//for shifter
+	output reg [1:0] ShifterOp,
+	//for Data memory (DM)
+	output reg MemWrite,
+	output reg IsMemAddrALUout,	//else: SP case
+	output reg IsMemDataRD2,		//else: SP case
+	//for NPC
+	output reg Branch,
+	output reg [1:0] BranchType,
+	//for ALU
+	output reg IsALUSrcARD1,
+	output reg IsALUSrcBRD2,		//else: shifter_out
+	output reg [4:0] ALUop,
+	// for RI exception
+	output reg IsUnknownInstr,
+	output reg MightOverflow,
+	// for NPC
+	output reg IsEret,
+	// for ExcCodeArbiter
+	output reg IsSyscall,
+	// for CP0
+	output reg CP0Write,
+	output reg IsMfc0
+	//if you add more control signal, please initial there inside always_comb
     );
 	 
 	 wire [5:0] op;
@@ -103,6 +94,12 @@ module ctrl(
 		 IsALUSrcARD1 = 1'b1;
 		 IsALUSrcBRD2 = 1'b1;
 		 ALUop = 5'b00000;
+		 IsUnknownInstr = 0;
+		 MightOverflow = 0;
+		 IsEret = 0;
+		 IsSyscall = 0;
+		 CP0Write = 0;
+		 IsMfc0 = 0;
 		 */
 		 
 		 //use x initialzation to make faster/lighter comb.
@@ -126,6 +123,12 @@ module ctrl(
 		 IsALUSrcARD1 = 1'bx;
 		 IsALUSrcBRD2 = 1'bx;
 		 ALUop = 5'bxxxxx;
+		 IsUnknownInstr = 0;
+		 MightOverflow = 0;
+		 IsEret = 0;
+		 IsSyscall = 0;
+		 CP0Write = 0;
+		 IsMfc0 = 0;
 		 //*/
 		case(op)
 			6'b000000:
@@ -153,6 +156,11 @@ module ctrl(
 								IsALUSrcARD1 = 1;
 								IsALUSrcBRD2 = 1;
 								ALUop = `ALUadd;
+
+								if (funct[0] == 0) begin
+									// signed
+									MightOverflow = 1;
+								end
 							end
 						6'b100010, 6'b100011:
 							//sub, subu
@@ -175,6 +183,12 @@ module ctrl(
 								IsALUSrcARD1 = 1;
 								IsALUSrcBRD2 = 1;
 								ALUop = `ALUsub;
+
+								if (funct[0] == 0) begin
+									// signed
+									MightOverflow = 1;
+								end
+
 							end
 						6'b001000:
 							//jr
@@ -187,6 +201,24 @@ module ctrl(
 								//Branch
 								Branch = 1;
 								BranchType = `BT_jr;	//jr
+							end
+						6'b001100:
+							//syscall
+							begin
+								IsSyscall = 1;
+							end
+						6'b000000:
+							//nop
+							begin
+								if (Instr == 32'h0000_0000) begin
+									// do nothing...
+								end else begin
+									IsUnknownInstr = 1;
+								end
+							end
+						default:
+							begin
+								IsUnknownInstr = 1;
 							end
 					endcase
 				end
@@ -331,6 +363,39 @@ module ctrl(
 					//Branch
 					Branch = 1;
 					BranchType = `BT_jal;
+				end
+			6'b010000:
+				// CP0 instructions
+				begin
+					if (Instr == 32'h4200_0018) begin
+						// eret
+						IsEret = 1;
+					end else if (rs == 5'b00000) begin
+						// mfc0
+						IsMfc0 = 1;
+
+						//REGs
+						//Write
+						RegWrite = 1;
+						RegDst = rt;
+						IsRegDstSP = 1'b0;
+						IsRegDataFromALU = 1'b0;	//else: MemDataOut
+						IsRegDataSP = 1'b0;
+					end else if (rs == 5'b00100) begin
+						// mtc0
+						CP0Write = 1;
+
+						//REGs
+						//Read 1
+						RegA1 = rt;
+						IsA1SP = 1'b0;
+					end else begin
+						IsUnknownInstr = 1;
+					end
+				end
+			default:
+				begin
+					IsUnknownInstr = 1;
 				end
 		endcase
 	 end

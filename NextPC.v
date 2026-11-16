@@ -1,42 +1,32 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date:    18:17:21 11/07/2025 
-// Design Name: 
-// Module Name:    NPC 
-// Project Name: 
-// Target Devices: 
-// Tool versions: 
-// Description: 
-//
-// Dependencies: 
-//
-// Revision: 
-// Revision 0.01 - File Created
-// Additional Comments: 
-//
-//////////////////////////////////////////////////////////////////////////////////
 `define BT_beq 2'b00
 `define BT_jal 2'b01
 `define BT_jr 2'b10
+
+`define ExceptionHandlerAddr 32'h0000_4180
 module NPC(
     input [31:0] PC,
     input Branch,
+	input IsEret,
+	input Req,
+	input [31:0] EPC,
     input [1:0] BranchType,
     input ALUout_0,
     input [31:0] ShifterOut,
     input [25:0] Imm26,
     input [31:0] RD1,
     output reg [31:0] NextPC,
-	 output [31:0] PCplus4
+	output [31:0] PCplus4
     );
 
 	assign PCplus4 = PC + 4;
 	
 	always@(*) begin
-		if(Branch) begin
+		if (Req) begin
+			NextPC = `ExceptionHandlerAddr;
+		end else if (IsEret) begin
+			NextPC = EPC;
+		end else if (Branch) begin
 			case(BranchType)
 				`BT_beq:
 					begin

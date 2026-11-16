@@ -11,8 +11,9 @@ mips.vvp: *.v
 vvp: mips.vvp
 
 clean:
-	rm mips.vvp
-	rm submit.zip
+	rm -f mips.vvp
+	rm -f wave.vcd
+	rm -f submit.zip
 
 wave.vcd: mips.vvp
 	vvp mips.vvp
